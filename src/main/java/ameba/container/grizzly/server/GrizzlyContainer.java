@@ -7,7 +7,6 @@ import ameba.mvc.assets.AssetsFeature;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.CompressionConfig;
 import org.glassfish.grizzly.http.server.CLStaticHttpHandler;
-import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.ServerConfiguration;
 import org.glassfish.grizzly.ssl.SSLContextConfigurator;
@@ -63,8 +62,9 @@ public class GrizzlyContainer extends Container {
             Map<String, String[]> assetMap = AssetsFeature.getAssetMap(app);
             Set<String> mapKey = assetMap.keySet();
             for (String key : mapKey) {
-                HttpHandler httpHandler = new CLStaticHttpHandler(ameba.Application.class.getClassLoader(), key + "/");
+                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(ameba.Application.class.getClassLoader(), key + "/");
                 httpHandler.setRequestURIEncoding(charset);
+                httpHandler.setFileCacheEnabled(app.getMode().isProd());
                 serverConfiguration.addHttpHandler(httpHandler,
                         assetMap.get(key));
             }
