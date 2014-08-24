@@ -41,6 +41,8 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private final ServerContainer serverContainer;
 
+    public final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
+
 
     // ------------------------------------------------------------ Constructors
 
@@ -118,8 +120,9 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         final org.glassfish.tyrus.spi.Connection tyrusConnection = getConnection(ctx);
 
-        logger.debug("handleRead websocket: {} content-size={} headers=\n{}",
-                tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
+        if (tyrusConnection != null)
+            logger.debug("handleRead websocket: {} content-size={} headers=\n{}",
+                    tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
 
         if (tyrusConnection == null) {
             // Get the HTTP header
@@ -130,8 +133,6 @@ public class GrizzlyServerFilter extends BaseFilter {
                 // if it's not a websocket connection - pass the processing to the next filter
                 return ctx.getInvokeAction();
             }
-
-            final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
 
             final AttributeHolder attributeHolder = ctx.getAttributes();
             if (attributeHolder != null) {
