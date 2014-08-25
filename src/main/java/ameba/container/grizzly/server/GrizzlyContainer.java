@@ -31,14 +31,12 @@ public class GrizzlyContainer extends Container {
 
     private HttpServer httpServer;
 
-    private ServiceLocator serviceLocator;
+    private GrizzlyHttpContainer containerProvider;
 
     public GrizzlyContainer(Application app) {
         super(app);
 
-        GrizzlyHttpContainer containerProvider = ContainerFactory.createContainer(GrizzlyHttpContainer.class, app);
-
-        serviceLocator = containerProvider.getApplicationHandler().getServiceLocator();
+        containerProvider = ContainerFactory.createContainer(GrizzlyHttpContainer.class, app);
 
         httpServer = GrizzlyServerFactory.createHttpServer(
                 app.getHttpServerBaseUri(),
@@ -125,7 +123,7 @@ public class GrizzlyContainer extends Container {
 
     @Override
     public ServiceLocator getServiceLocator() {
-        return serviceLocator;
+        return containerProvider.getApplicationHandler().getServiceLocator();
     }
 
     @Override
