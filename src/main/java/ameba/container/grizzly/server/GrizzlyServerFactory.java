@@ -2,6 +2,7 @@ package ameba.container.grizzly.server;
 
 import ameba.container.grizzly.server.websocket.WebSocketAddOn;
 import ameba.server.Connector;
+import ameba.util.ClassUtils;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.GrizzlyFuture;
@@ -15,7 +16,6 @@ import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.spdy.SpdyAddOn;
 import org.glassfish.grizzly.ssl.SSLContextConfigurator;
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
-import org.glassfish.grizzly.strategies.WorkerThreadIOStrategy;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpContainer;
 import org.glassfish.tyrus.core.DebugContext;
@@ -295,10 +295,41 @@ public class GrizzlyServerFactory {
             }
         };
 
-
         server.getServerConfiguration().setJmxEnabled(jmxEnabled);
 
+        ThreadPoolConfig workerThreadPoolConfig = null;
+
+        String workerThreadPoolConfigClass = Utils.getProperty(properties, WORKER_THREAD_POOL_CONFIG, String.class);
+        if (StringUtils.isNotBlank(workerThreadPoolConfigClass)) {
+            workerThreadPoolConfig = (ThreadPoolConfig) ClassUtils.newInstance(workerThreadPoolConfigClass);
+        }
+
+        ThreadPoolConfig selectorThreadPoolConfig = null;
+
+        String selectorThreadPoolConfigClass = Utils.getProperty(properties, SELECTOR_THREAD_POOL_CONFIG, String.class);
+        if (StringUtils.isNotBlank(selectorThreadPoolConfigClass)) {
+            selectorThreadPoolConfig = (ThreadPoolConfig) ClassUtils.newInstance(selectorThreadPoolConfigClass);
+        }
+
+
+        TCPNIOTransportBuilder transportBuilder = null;
+
+        if (workerThreadPoolConfig != null || selectorThreadPoolConfig != null) {
+            transportBuilder = TCPNIOTransportBuilder.newInstance();
+            if (workerThreadPoolConfig != null) {
+                transportBuilder.setWorkerThreadPoolConfig(workerThreadPoolConfig);
+            }
+            if (selectorThreadPoolConfig != null) {
+                transportBuilder.setSelectorThreadPoolConfig(selectorThreadPoolConfig);
+            }
+        }
+
         for (NetworkListener listener : listeners) {
+
+            if (transportBuilder != null) {
+                listener.setTransport(transportBuilder.build());
+            }
+
             server.addListener(listener);
         }
         // Map the path to the processor.
@@ -337,18 +368,30 @@ public class GrizzlyServerFactory {
         final Integer maxSessionsPerApp = Utils.getProperty(localProperties, WEBSOCKET_MAX_SESSIONS_PER_APP, Integer.class);
         final Integer maxSessionsPerRemoteAddr = Utils.getProperty(localProperties, WEBSOCKET_MAX_SESSIONS_PER_REMOTE_ADDR, Integer.class);
         final Boolean parallelBroadcastEnabled = Utils.getProperty(localProperties, WEBSOCKET_PARALLEL_BROADCAST_ENABLED, Boolean.class);
-        // todo 这里获取的是字符串，应该反射成对象
-        final ClusterContext clusterContext = Utils.getProperty(localProperties, WEBSOCKET_CLUSTER_CONTEXT, ClusterContext.class);
-        final ApplicationEventListener applicationEventListener = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, ApplicationEventListener.class);
+
+        ClusterContext clusterContext = null;
+        String clusterContextClass = Utils.getProperty(localProperties, WEBSOCKET_CLUSTER_CONTEXT, String.class);
+        if (StringUtils.isNotBlank(clusterContextClass)) {
+            clusterContext = (ClusterContext) ClassUtils.newInstance(clusterContextClass);
+        }
+
+        ApplicationEventListener applicationEventListener = null;
+        String applicationEventListenerClass = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, String.class);
+        if (StringUtils.isNotBlank(applicationEventListenerClass)) {
+            applicationEventListener = (ApplicationEventListener) ClassUtils.newInstance(applicationEventListenerClass);
+        }
+
         final DebugContext.TracingType tracingType = Utils.getProperty(localProperties, WEBSOCKET_TRACING_TYPE, DebugContext.TracingType.class, DebugContext.TracingType.OFF);
         final DebugContext.TracingThreshold tracingThreshold = Utils.getProperty(localProperties, WEBSOCKET_TRACING_THRESHOLD, DebugContext.TracingThreshold.class, DebugContext.TracingThreshold.TRACE);
 
+        final ClusterContext finalClusterContext = clusterContext;
+        final ApplicationEventListener finalApplicationEventListener = applicationEventListener;
         return new TyrusServerContainer((Set<Class<?>>) null) {
 
             private final WebSocketEngine engine = TyrusWebSocketEngine.builder(this)
                     .incomingBufferSize(incomingBufferSize)
-                    .clusterContext(clusterContext)
-                    .applicationEventListener(applicationEventListener)
+                    .clusterContext(finalClusterContext)
+                    .applicationEventListener(finalApplicationEventListener)
                     .maxSessionsPerApp(maxSessionsPerApp)
                     .maxSessionsPerRemoteAddr(maxSessionsPerRemoteAddr)
                     .parallelBroadcastEnabled(parallelBroadcastEnabled)
@@ -377,41 +420,17 @@ public class GrizzlyServerFactory {
             public void start(final String rootPath, int port) throws IOException, DeploymentException {
                 contextPath = rootPath;
                 // server = HttpServer.createSimpleServer(rootPath, port);
-                // todo 这里获取的是字符串，应该反射成对象
-                ThreadPoolConfig workerThreadPoolConfig = Utils.getProperty(localProperties, WORKER_THREAD_POOL_CONFIG, ThreadPoolConfig.class);
-                ThreadPoolConfig selectorThreadPoolConfig = Utils.getProperty(localProperties, SELECTOR_THREAD_POOL_CONFIG, ThreadPoolConfig.class);
-
-                TCPNIOTransportBuilder transportBuilder = null;
-
-                // TYRUS-287: configurable server thread pools
-                if (workerThreadPoolConfig != null || selectorThreadPoolConfig != null) {
-                    transportBuilder = TCPNIOTransportBuilder.newInstance();
-                    if (workerThreadPoolConfig != null) {
-                        transportBuilder.setWorkerThreadPoolConfig(workerThreadPoolConfig);
-                    }
-                    if (selectorThreadPoolConfig != null) {
-                        transportBuilder.setSelectorThreadPoolConfig(selectorThreadPoolConfig);
-                    }
-                    transportBuilder.setIOStrategy(WorkerThreadIOStrategy.getInstance());
-                }
 
                 WebSocketAddOn addOn = new WebSocketAddOn(this);
 
                 for (NetworkListener listener : listeners) {
-
-                    if (transportBuilder != null) {
-                        listener.setTransport(transportBuilder.build());
-                    } else {
-                        listener.getTransport().setIOStrategy(WorkerThreadIOStrategy.getInstance());
-                    }
-
                     // idle timeout set to indefinite.
                     listener.getKeepAlive().setIdleTimeoutInSeconds(-1);
                     listener.registerAddOn(addOn);
                 }
 
-                if (applicationEventListener != null) {
-                    applicationEventListener.onApplicationInitialized(rootPath);
+                if (finalApplicationEventListener != null) {
+                    finalApplicationEventListener.onApplicationInitialized(rootPath);
                 }
 
                 super.start(rootPath, port);
@@ -420,8 +439,8 @@ public class GrizzlyServerFactory {
             @Override
             public void stop() {
                 super.stop();
-                if (applicationEventListener != null) {
-                    applicationEventListener.onApplicationDestroyed();
+                if (finalApplicationEventListener != null) {
+                    finalApplicationEventListener.onApplicationDestroyed();
                 }
             }
         };
