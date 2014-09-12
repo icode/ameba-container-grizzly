@@ -18,6 +18,7 @@ import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.grizzly.strategies.WorkerThreadIOStrategy;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpContainer;
+import org.glassfish.tyrus.core.DebugContext;
 import org.glassfish.tyrus.core.TyrusWebSocketEngine;
 import org.glassfish.tyrus.core.Utils;
 import org.glassfish.tyrus.core.cluster.ClusterContext;
@@ -46,14 +47,14 @@ public class GrizzlyServerFactory {
      * <p/>
      * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
      */
-    public static final String WORKER_THREAD_POOL_CONFIG = "app.container.server.workerThreadPoolConfig";
+    public static final String WORKER_THREAD_POOL_CONFIG = "container.server.workerThreadPoolConfig";
 
     /**
      * Server-side property to set custom selector {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}.
      * <p/>
      * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
      */
-    public static final String SELECTOR_THREAD_POOL_CONFIG = "app.container.server.selectorThreadPoolConfig";
+    public static final String SELECTOR_THREAD_POOL_CONFIG = "container.server.selectorThreadPoolConfig";
     /**
      * Maximum size of incoming buffer in bytes.
      * <p/>
@@ -62,7 +63,7 @@ public class GrizzlyServerFactory {
      * Default value is 4194315, which means that TyrusWebSocketEngine is by default
      * capable of processing messages up to 4 MB.
      */
-    public static final String INCOMING_BUFFER_SIZE = "app.websocket.incomingBufferSize";
+    public static final String INCOMING_BUFFER_SIZE = "websocket.incomingBufferSize";
 
     /**
      * Maximum number of open sessions per server application.
@@ -72,7 +73,7 @@ public class GrizzlyServerFactory {
      * <p/>
      * The number of open sessions per application is not limited by default.
      */
-    public static final String MAX_SESSIONS_PER_APP = "app.websocket.maxSessionsPerApp";
+    public static final String MAX_SESSIONS_PER_APP = "websocket.maxSessionsPerApp";
 
     /**
      * Maximum number of open sessions per unique remote address.
@@ -82,7 +83,39 @@ public class GrizzlyServerFactory {
      * <p/>
      * The number of open sessions per remote address is not limited by default.
      */
-    public static final String MAX_SESSIONS_PER_REMOTE_ADDR = "app.websocket.maxSessionsPerRemoteAddr";
+    public static final String MAX_SESSIONS_PER_REMOTE_ADDR = "websocket.maxSessionsPerRemoteAddr";
+
+    /**
+     * Property used for configuring the type of tracing supported by the server.
+     * <p/>
+     * The value is expected to be string value of {@link org.glassfish.tyrus.core.DebugContext.TracingType}.
+     * <p/>
+     * The default value is {@link org.glassfish.tyrus.core.DebugContext.TracingType#OFF}.
+     */
+    public static final String TRACING_TYPE = "websocket.tracingType";
+
+    /**
+     * Property used for configuring tracing threshold.
+     * <p/>
+     * The value is expected to be string value of {@link org.glassfish.tyrus.core.DebugContext.TracingThreshold}.
+     * <p/>
+     * The default value is {@link org.glassfish.tyrus.core.DebugContext.TracingThreshold#SUMMARY}.
+     */
+    public static final String TRACING_THRESHOLD = "websocket.tracingThreshold";
+
+    /**
+     * Parallel broadcast support.
+     * <p/>
+     * {@link org.glassfish.tyrus.core.TyrusSession#broadcast(String)} and {@link org.glassfish.tyrus.core.TyrusSession#broadcast(java.nio.ByteBuffer)}
+     * operations are by default executed in parallel. The parallel execution of broadcast can be disabled by setting
+     * this server property to {@code false}.
+     * <p/>
+     * Expected value is {@code true} or {@code false} and the default value is {@code true}.
+     *
+     * @see org.glassfish.tyrus.core.TyrusSession#broadcast(String).
+     * @see org.glassfish.tyrus.core.TyrusSession#broadcast(java.nio.ByteBuffer).
+     */
+    public static final String PARALLEL_BROADCAST_ENABLED = "websocket.parallelBroadcastEnabled";
 
     @SuppressWarnings("unchecked")
     private static List<NetworkListener> createListeners(List<Connector> connectors, CompressionConfig compression) {
@@ -275,10 +308,14 @@ public class GrizzlyServerFactory {
         }
 
         final Integer incomingBufferSize = Utils.getProperty(localProperties, INCOMING_BUFFER_SIZE, Integer.class);
-        final ClusterContext clusterContext = Utils.getProperty(localProperties, ClusterContext.CLUSTER_CONTEXT, ClusterContext.class);
-        final ApplicationEventListener applicationEventListener = Utils.getProperty(localProperties, ApplicationEventListener.APPLICATION_EVENT_LISTENER, ApplicationEventListener.class);
         final Integer maxSessionsPerApp = Utils.getProperty(localProperties, MAX_SESSIONS_PER_APP, Integer.class);
         final Integer maxSessionsPerRemoteAddr = Utils.getProperty(localProperties, MAX_SESSIONS_PER_REMOTE_ADDR, Integer.class);
+        final Boolean parallelBroadcastEnabled = Utils.getProperty(localProperties, PARALLEL_BROADCAST_ENABLED, Boolean.class);
+        // todo 这里获取的是字符串，应该反射成对象
+        final ClusterContext clusterContext = Utils.getProperty(localProperties, ClusterContext.CLUSTER_CONTEXT, ClusterContext.class);
+        final ApplicationEventListener applicationEventListener = Utils.getProperty(localProperties, ApplicationEventListener.APPLICATION_EVENT_LISTENER, ApplicationEventListener.class);
+        final DebugContext.TracingType tracingType = Utils.getProperty(localProperties, TRACING_TYPE, DebugContext.TracingType.class, DebugContext.TracingType.OFF);
+        final DebugContext.TracingThreshold tracingThreshold = Utils.getProperty(localProperties, TRACING_THRESHOLD, DebugContext.TracingThreshold.class, DebugContext.TracingThreshold.TRACE);
 
         return new TyrusServerContainer((Set<Class<?>>) null) {
 
@@ -288,6 +325,9 @@ public class GrizzlyServerFactory {
                     .applicationEventListener(applicationEventListener)
                     .maxSessionsPerApp(maxSessionsPerApp)
                     .maxSessionsPerRemoteAddr(maxSessionsPerRemoteAddr)
+                    .parallelBroadcastEnabled(parallelBroadcastEnabled)
+                    .tracingType(tracingType)
+                    .tracingThreshold(tracingThreshold)
                     .build();
 
             private String contextPath;
@@ -311,6 +351,7 @@ public class GrizzlyServerFactory {
             public void start(final String rootPath, int port) throws IOException, DeploymentException {
                 contextPath = rootPath;
                 // server = HttpServer.createSimpleServer(rootPath, port);
+                // todo 这里获取的是字符串，应该反射成对象
                 ThreadPoolConfig workerThreadPoolConfig = Utils.getProperty(localProperties, WORKER_THREAD_POOL_CONFIG, ThreadPoolConfig.class);
                 ThreadPoolConfig selectorThreadPoolConfig = Utils.getProperty(localProperties, SELECTOR_THREAD_POOL_CONFIG, ThreadPoolConfig.class);
 

@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.container</groupId>
     <artifactId>ameba-container-grizzly</artifactId>
-    <version>0.1.6a</version>
+    <version>0.1.6b</version>
 
     <name>Ameba-Framework-Container-Grizzly</name>
     <description>A useful Java framework grizzly container!</description>
@@ -184,19 +184,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.glassfish.grizzly</groupId>
-            <artifactId>grizzly-comet</artifactId>
-            <version>${grizzly.version}</version>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.grizzly</groupId>
-            <artifactId>grizzly-portunif</artifactId>
-            <version>${grizzly.version}</version>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
             <groupId>org.amebastack</groupId>
             <artifactId>ameba</artifactId>
             <version>${ameba.version}</version>
@@ -206,7 +193,7 @@
 
     <properties>
         <ameba.version>0.1.6a</ameba.version>
-        <tyrus.version>1.7</tyrus.version>
+        <tyrus.version>1.8.3</tyrus.version>
         <jersey.version>2.10.1</jersey.version>
         <grizzly.version>2.3.16</grizzly.version>
     </properties>

@@ -1,9 +1,11 @@
 package ameba.container.grizzly.server.websocket;
 
 import org.glassfish.grizzly.*;
+import org.glassfish.grizzly.Connection;
 import org.glassfish.grizzly.attributes.Attribute;
 import org.glassfish.grizzly.attributes.AttributeHolder;
 import org.glassfish.grizzly.filterchain.BaseFilter;
+import org.glassfish.grizzly.filterchain.FilterChain;
 import org.glassfish.grizzly.filterchain.FilterChainContext;
 import org.glassfish.grizzly.filterchain.NextAction;
 import org.glassfish.grizzly.http.*;
@@ -14,12 +16,12 @@ import org.glassfish.tyrus.core.CloseReasons;
 import org.glassfish.tyrus.core.RequestContext;
 import org.glassfish.tyrus.core.TyrusUpgradeResponse;
 import org.glassfish.tyrus.core.Utils;
-import org.glassfish.tyrus.spi.Connection;
 import org.glassfish.tyrus.spi.ReadHandler;
 import org.glassfish.tyrus.spi.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.websocket.CloseReason;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -33,7 +35,7 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(GrizzlyServerFilter.class);
 
-    private static final Attribute<Connection> TYRUS_CONNECTION = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
+    private static final Attribute<org.glassfish.tyrus.spi.Connection> TYRUS_CONNECTION = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
             .createAttribute(GrizzlyServerFilter.class.getName() + ".Connection");
 
     private static final Attribute<TaskProcessor> TASK_PROCESSOR = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
@@ -57,38 +59,15 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     // ----------------------------------------------------- Methods from Filter
 
-    private static UpgradeRequest createWebSocketRequest(final HttpContent requestContent) {
-
-        final HttpRequestPacket requestPacket = (HttpRequestPacket) requestContent.getHttpHeader();
-
-        final RequestContext requestContext = RequestContext.Builder.create()
-                .requestURI(URI.create(requestPacket.getRequestURI()))
-                .queryString(requestPacket.getQueryString())
-                .secure(requestPacket.isSecure())
-                .remoteAddr(requestPacket.getRemoteAddress())
-                .build();
-
-        for (String name : requestPacket.getHeaders().names()) {
-            final List<String> values = requestContext.getHeaders().get(name);
-            if (values == null) {
-                requestContext.getHeaders().put(name, Utils.parseHeaderValue(requestPacket.getHeader(name).trim()));
-            } else {
-                values.addAll(Utils.parseHeaderValue(requestPacket.getHeader(name).trim()));
-            }
-        }
-
-        return requestContext;
-    }
-
     /**
-     * Method handles Grizzly {@link org.glassfish.grizzly.Connection} close phase. Check if the {@link org.glassfish.grizzly.Connection} is a {@link org.glassfish.tyrus.core.TyrusWebSocket}, if
+     * Method handles Grizzly {@link Connection} close phase. Check if the {@link Connection} is a {@link org.glassfish.tyrus.core.TyrusWebSocket}, if
      * yes - tries to close the websocket gracefully (sending close frame) and calls {@link
-     * org.glassfish.tyrus.core.TyrusWebSocket#onClose(org.glassfish.tyrus.core.frame.CloseFrame)}. If the Grizzly {@link org.glassfish.grizzly.Connection} is not websocket - passes processing to the next
+     * org.glassfish.tyrus.core.TyrusWebSocket#onClose(org.glassfish.tyrus.core.frame.CloseFrame)}. If the Grizzly {@link Connection} is not websocket - passes processing to the next
      * filter in the chain.
      *
-     * @param ctx {@link org.glassfish.grizzly.filterchain.FilterChainContext}
-     * @return {@link org.glassfish.grizzly.filterchain.NextAction} instruction for {@link org.glassfish.grizzly.filterchain.FilterChain}, how it should continue the execution
-     * @throws java.io.IOException
+     * @param ctx {@link FilterChainContext}
+     * @return {@link NextAction} instruction for {@link FilterChain}, how it should continue the execution
+     * @throws IOException
      */
     @Override
     public NextAction handleClose(FilterChainContext ctx) throws IOException {
@@ -120,9 +99,8 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         final org.glassfish.tyrus.spi.Connection tyrusConnection = getConnection(ctx);
 
-        if (tyrusConnection != null)
-            logger.debug("handleRead websocket: {} content-size={} headers=\n{}",
-                    tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
+        logger.trace("handleRead websocket: {} content-size={} headers=\n{}",
+                tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
 
         if (tyrusConnection == null) {
             // Get the HTTP header
@@ -200,7 +178,7 @@ public class GrizzlyServerFilter extends BaseFilter {
 
                 final org.glassfish.tyrus.spi.Connection connection = upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()), new org.glassfish.tyrus.spi.Connection.CloseListener() {
                     @Override
-                    public void close(javax.websocket.CloseReason reason) {
+                    public void close(CloseReason reason) {
                         grizzlyConnection.close();
                     }
                 });
@@ -227,6 +205,7 @@ public class GrizzlyServerFilter extends BaseFilter {
                 return ctx.getStopAction();
 
             case NOT_APPLICABLE:
+                writeTraceHeaders(ctx, upgradeResponse);
                 return ctx.getInvokeAction();
         }
 
@@ -243,6 +222,42 @@ public class GrizzlyServerFilter extends BaseFilter {
         }
 
         ctx.write(HttpContent.builder(responsePacket).build());
+    }
+
+    private void writeTraceHeaders(FilterChainContext ctx, UpgradeResponse upgradeResponse) {
+        final HttpResponsePacket responsePacket = ((HttpRequestPacket) ((HttpContent) ctx.getMessage()).getHttpHeader()).getResponse();
+
+        for (Map.Entry<String, List<String>> entry : upgradeResponse.getHeaders().entrySet()) {
+            if (entry.getKey().contains(UpgradeResponse.TRACING_HEADER_PREFIX)) {
+                responsePacket.setHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
+            }
+        }
+    }
+
+    private static UpgradeRequest createWebSocketRequest(final HttpContent requestContent) {
+
+        final HttpRequestPacket requestPacket = (HttpRequestPacket) requestContent.getHttpHeader();
+
+        final RequestContext requestContext = RequestContext.Builder.create()
+                .requestURI(URI.create(requestPacket.getRequestURI()))
+                .queryString(requestPacket.getQueryString())
+                .secure(requestPacket.isSecure())
+                .remoteAddr(requestPacket.getRemoteAddress())
+                .build();
+
+        for (String name : requestPacket.getHeaders().names()) {
+            for (String headerValue : requestPacket.getHeaders().values(name)) {
+
+                final List<String> values = requestContext.getHeaders().get(name);
+                if (values == null) {
+                    requestContext.getHeaders().put(name, Utils.parseHeaderValue(headerValue.trim()));
+                } else {
+                    values.addAll(Utils.parseHeaderValue(headerValue.trim()));
+                }
+            }
+        }
+
+        return requestContext;
     }
 
     private class ProcessTask extends TaskProcessor.Task {
@@ -262,10 +277,10 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private class CloseTask extends TaskProcessor.Task {
         private final org.glassfish.tyrus.spi.Connection connection;
-        private final javax.websocket.CloseReason closeReason;
-        private final org.glassfish.grizzly.Connection grizzlyConnection;
+        private final CloseReason closeReason;
+        private final Connection grizzlyConnection;
 
-        private CloseTask(org.glassfish.tyrus.spi.Connection connection, javax.websocket.CloseReason closeReason, org.glassfish.grizzly.Connection grizzlyConnection) {
+        private CloseTask(org.glassfish.tyrus.spi.Connection connection, CloseReason closeReason, Connection grizzlyConnection) {
             this.connection = connection;
             this.closeReason = closeReason;
             this.grizzlyConnection = grizzlyConnection;
