@@ -63,7 +63,7 @@ public class GrizzlyServerFactory {
      * Default value is 4194315, which means that TyrusWebSocketEngine is by default
      * capable of processing messages up to 4 MB.
      */
-    public static final String INCOMING_BUFFER_SIZE = "websocket.incomingBufferSize";
+    public static final String WEBSOCKET_INCOMING_BUFFER_SIZE = "websocket.incomingBufferSize";
 
     /**
      * Maximum number of open sessions per server application.
@@ -73,7 +73,7 @@ public class GrizzlyServerFactory {
      * <p/>
      * The number of open sessions per application is not limited by default.
      */
-    public static final String MAX_SESSIONS_PER_APP = "websocket.maxSessionsPerApp";
+    public static final String WEBSOCKET_MAX_SESSIONS_PER_APP = "websocket.maxSessionsPerApp";
 
     /**
      * Maximum number of open sessions per unique remote address.
@@ -83,7 +83,7 @@ public class GrizzlyServerFactory {
      * <p/>
      * The number of open sessions per remote address is not limited by default.
      */
-    public static final String MAX_SESSIONS_PER_REMOTE_ADDR = "websocket.maxSessionsPerRemoteAddr";
+    public static final String WEBSOCKET_MAX_SESSIONS_PER_REMOTE_ADDR = "websocket.maxSessionsPerRemoteAddr";
 
     /**
      * Property used for configuring the type of tracing supported by the server.
@@ -92,7 +92,7 @@ public class GrizzlyServerFactory {
      * <p/>
      * The default value is {@link org.glassfish.tyrus.core.DebugContext.TracingType#OFF}.
      */
-    public static final String TRACING_TYPE = "websocket.tracingType";
+    public static final String WEBSOCKET_TRACING_TYPE = "websocket.tracingType";
 
     /**
      * Property used for configuring tracing threshold.
@@ -101,7 +101,7 @@ public class GrizzlyServerFactory {
      * <p/>
      * The default value is {@link org.glassfish.tyrus.core.DebugContext.TracingThreshold#SUMMARY}.
      */
-    public static final String TRACING_THRESHOLD = "websocket.tracingThreshold";
+    public static final String WEBSOCKET_TRACING_THRESHOLD = "websocket.tracingThreshold";
 
     /**
      * Parallel broadcast support.
@@ -115,7 +115,33 @@ public class GrizzlyServerFactory {
      * @see org.glassfish.tyrus.core.TyrusSession#broadcast(String).
      * @see org.glassfish.tyrus.core.TyrusSession#broadcast(java.nio.ByteBuffer).
      */
-    public static final String PARALLEL_BROADCAST_ENABLED = "websocket.parallelBroadcastEnabled";
+    public static final String WEBSOCKET_PARALLEL_BROADCAST_ENABLED = "websocket.parallelBroadcastEnabled";
+
+
+    /**
+     * ClusterContext registration property.
+     * <p/>
+     * ClusterContext is registered to the Server container via properties passed to {@link org.glassfish.tyrus.spi.ServerContainerFactory#createServerContainer(java.util.Map)}.
+     */
+    public static final String WEBSOCKET_CLUSTER_CONTEXT = "websocket.cluster.ClusterContext";
+
+
+    /**
+     * A key used for registering a application event listener implementation.
+     * <p/>
+     * For monitoring in Grizzly server an instance should be passed to the server in server properties:
+     * <pre>
+     *     serverProperties.put(ApplicationEventListener.APPLICATION_EVENT_LISTENER, new MyApplicationEventListener());
+     * </pre>
+     * For use in servlet container the class name should be passed as a context parameter in web.xml:
+     * <pre>{@code
+     *     <context-param>
+     *         <param-name>org.glassfish.tyrus.core.monitoring.ApplicationEventListener</param-name>
+     *         <param-value>com.acme.MyApplicationEventListener</param-value>
+     *     </context-param>}</pre>
+     */
+    public static final String WEBSOCKET_APPLICATION_EVENT_LISTENER = "websocket.monitoring.ApplicationEventListener";
+
 
     @SuppressWarnings("unchecked")
     private static List<NetworkListener> createListeners(List<Connector> connectors, CompressionConfig compression) {
@@ -307,15 +333,15 @@ public class GrizzlyServerFactory {
             localProperties = new HashMap<String, Object>(properties);
         }
 
-        final Integer incomingBufferSize = Utils.getProperty(localProperties, INCOMING_BUFFER_SIZE, Integer.class);
-        final Integer maxSessionsPerApp = Utils.getProperty(localProperties, MAX_SESSIONS_PER_APP, Integer.class);
-        final Integer maxSessionsPerRemoteAddr = Utils.getProperty(localProperties, MAX_SESSIONS_PER_REMOTE_ADDR, Integer.class);
-        final Boolean parallelBroadcastEnabled = Utils.getProperty(localProperties, PARALLEL_BROADCAST_ENABLED, Boolean.class);
+        final Integer incomingBufferSize = Utils.getProperty(localProperties, WEBSOCKET_INCOMING_BUFFER_SIZE, Integer.class);
+        final Integer maxSessionsPerApp = Utils.getProperty(localProperties, WEBSOCKET_MAX_SESSIONS_PER_APP, Integer.class);
+        final Integer maxSessionsPerRemoteAddr = Utils.getProperty(localProperties, WEBSOCKET_MAX_SESSIONS_PER_REMOTE_ADDR, Integer.class);
+        final Boolean parallelBroadcastEnabled = Utils.getProperty(localProperties, WEBSOCKET_PARALLEL_BROADCAST_ENABLED, Boolean.class);
         // todo 这里获取的是字符串，应该反射成对象
-        final ClusterContext clusterContext = Utils.getProperty(localProperties, ClusterContext.CLUSTER_CONTEXT, ClusterContext.class);
-        final ApplicationEventListener applicationEventListener = Utils.getProperty(localProperties, ApplicationEventListener.APPLICATION_EVENT_LISTENER, ApplicationEventListener.class);
-        final DebugContext.TracingType tracingType = Utils.getProperty(localProperties, TRACING_TYPE, DebugContext.TracingType.class, DebugContext.TracingType.OFF);
-        final DebugContext.TracingThreshold tracingThreshold = Utils.getProperty(localProperties, TRACING_THRESHOLD, DebugContext.TracingThreshold.class, DebugContext.TracingThreshold.TRACE);
+        final ClusterContext clusterContext = Utils.getProperty(localProperties, WEBSOCKET_CLUSTER_CONTEXT, ClusterContext.class);
+        final ApplicationEventListener applicationEventListener = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, ApplicationEventListener.class);
+        final DebugContext.TracingType tracingType = Utils.getProperty(localProperties, WEBSOCKET_TRACING_TYPE, DebugContext.TracingType.class, DebugContext.TracingType.OFF);
+        final DebugContext.TracingThreshold tracingThreshold = Utils.getProperty(localProperties, WEBSOCKET_TRACING_THRESHOLD, DebugContext.TracingThreshold.class, DebugContext.TracingThreshold.TRACE);
 
         return new TyrusServerContainer((Set<Class<?>>) null) {
 
