@@ -99,8 +99,9 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         final org.glassfish.tyrus.spi.Connection tyrusConnection = getConnection(ctx);
 
-        logger.trace("handleRead websocket: {} content-size={} headers=\n{}",
-                tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
+        if (tyrusConnection != null)
+            logger.trace("handleRead websocket: {} content-size={} headers=\n{}",
+                    tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
 
         if (tyrusConnection == null) {
             // Get the HTTP header
