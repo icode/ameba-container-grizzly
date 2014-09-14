@@ -41,7 +41,7 @@ public class GrizzlyContainer extends Container {
 
         ServerConfiguration serverConfiguration = httpServer.getServerConfiguration();
         serverConfiguration.setHttpServerName(app.getApplicationName());
-        serverConfiguration.setHttpServerVersion(app.getApplicationVersion());
+        serverConfiguration.setHttpServerVersion(app.getApplicationVersion().toString());
         serverConfiguration.setName("Ameba-HttpServer-" + app.getApplicationName());
 
         String charset = StringUtils.defaultIfBlank((String) app.getProperty("app.encoding"), "utf-8");
