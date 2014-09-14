@@ -23,6 +23,7 @@ import org.glassfish.tyrus.core.TyrusWebSocketEngine;
 import org.glassfish.tyrus.core.Utils;
 import org.glassfish.tyrus.core.cluster.ClusterContext;
 import org.glassfish.tyrus.core.monitoring.ApplicationEventListener;
+import org.glassfish.tyrus.ext.monitoring.jmx.SessionAwareApplicationMonitor;
 import org.glassfish.tyrus.server.TyrusServerContainer;
 import org.glassfish.tyrus.spi.ServerContainer;
 import org.glassfish.tyrus.spi.WebSocketEngine;
@@ -379,6 +380,8 @@ public class GrizzlyServerFactory {
         String applicationEventListenerClass = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, String.class);
         if (StringUtils.isNotBlank(applicationEventListenerClass)) {
             applicationEventListener = (ApplicationEventListener) ClassUtils.newInstance(applicationEventListenerClass);
+        } else if (Utils.getProperty(localProperties, "app.jmx.enabled", Boolean.class)) {
+            applicationEventListener = new SessionAwareApplicationMonitor();
         }
 
         final DebugContext.TracingType tracingType = Utils.getProperty(localProperties, WEBSOCKET_TRACING_TYPE, DebugContext.TracingType.class, DebugContext.TracingType.OFF);
