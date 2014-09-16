@@ -30,7 +30,7 @@ public class Hk2ComponentProvider extends ComponentProvider {
 
     @Override
     public <T> Object create(Class<T> c) {
-        return Ameba.getServiceLocator().create(c);
+        return Ameba.getServiceLocator().createAndInitialize(c);
     }
 
     @Override
