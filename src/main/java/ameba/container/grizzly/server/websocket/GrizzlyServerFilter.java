@@ -99,10 +99,6 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         final org.glassfish.tyrus.spi.Connection tyrusConnection = getConnection(ctx);
 
-        if (tyrusConnection != null)
-            logger.trace("handleRead websocket: {} content-size={} headers=\n{}",
-                    tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
-
         if (tyrusConnection == null) {
             // Get the HTTP header
             final HttpHeader header = message.getHttpHeader();
@@ -124,8 +120,13 @@ public class GrizzlyServerFilter extends BaseFilter {
                 }
             }
             // Handle handshake
+            logger.trace("handleHandshake websocket: {} content-size={} headers=\n{}",
+                    message.getContent().remaining(), message.getHttpHeader());
             return handleHandshake(ctx, message);
         }
+
+        logger.trace("handleRead websocket: {} content-size={} headers=\n{}",
+                tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
 
         // tyrusConnection is not null
         // this is websocket with the completed handshake
@@ -198,15 +199,23 @@ public class GrizzlyServerFilter extends BaseFilter {
                     }
                 });
 
+                logger.trace("handleHandshake websocket success: {} content-size={} headers=\n{}",
+                        grizzlyConnection, content.getContent().remaining(), content.getHttpHeader());
+
                 return ctx.getStopAction();
 
             case HANDSHAKE_FAILED:
                 write(ctx, upgradeRequest, upgradeResponse);
                 content.recycle();
+
+                logger.trace("handleHandshake websocket failed: content-size={} headers=\n{}",
+                        content.getContent().remaining(), content.getHttpHeader());
                 return ctx.getStopAction();
 
             case NOT_APPLICABLE:
                 writeTraceHeaders(ctx, upgradeResponse);
+                logger.trace("not found websocket handler: content-size={} headers=\n{}",
+                        content.getContent().remaining(), content.getHttpHeader());
                 return ctx.getInvokeAction();
         }
 
