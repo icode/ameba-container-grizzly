@@ -74,7 +74,6 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         final org.glassfish.tyrus.spi.Connection connection = getConnection(ctx);
         if (connection != null) {
-            logger.trace("websocket closing: {}", connection);
             TaskProcessor taskProcessor = getTaskProcessor(ctx);
             taskProcessor.processTask(new CloseTask(connection, CloseReasons.CLOSED_ABNORMALLY.getCloseReason(), ctx.getConnection()));
         }
@@ -192,6 +191,7 @@ public class GrizzlyServerFilter extends BaseFilter {
                 grizzlyConnection.addCloseListener(new CloseListener() {
                     @Override
                     public void onClosed(Closeable closeable, ICloseType type) throws IOException {
+                        logger.trace("websocket closing: {}", connection);
                         // close detected on connection
                         connection.close(CloseReasons.GOING_AWAY.getCloseReason());
                         // might not be necessary, connection is going to be recycled/freed anyway
