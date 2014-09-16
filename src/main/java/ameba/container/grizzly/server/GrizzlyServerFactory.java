@@ -1,6 +1,8 @@
 package ameba.container.grizzly.server;
 
+import ameba.Application;
 import ameba.container.grizzly.server.websocket.WebSocketAddOn;
+import ameba.mvc.assets.AssetsFeature;
 import ameba.server.Connector;
 import ameba.util.ClassUtils;
 import ameba.websocket.WebSocketFeature;
@@ -9,7 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.GrizzlyFuture;
 import org.glassfish.grizzly.http.CompressionConfig;
 import org.glassfish.grizzly.http.ajp.AjpAddOn;
-import org.glassfish.grizzly.http.server.HttpHandler;
+import org.glassfish.grizzly.http.server.CLStaticHttpHandler;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.http.server.ServerConfiguration;
@@ -18,7 +20,8 @@ import org.glassfish.grizzly.spdy.SpdyAddOn;
 import org.glassfish.grizzly.ssl.SSLContextConfigurator;
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
-import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpContainer;
+import org.glassfish.hk2.api.Factory;
+import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.tyrus.core.DebugContext;
 import org.glassfish.tyrus.core.TyrusWebSocketEngine;
 import org.glassfish.tyrus.core.Utils;
@@ -35,6 +38,7 @@ import javax.websocket.DeploymentException;
 import javax.websocket.server.ServerEndpointConfig;
 import javax.ws.rs.ProcessingException;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -248,28 +252,36 @@ public class GrizzlyServerFactory {
     /**
      * Creates HttpServer instance.
      *
-     * @param handler    {@link org.glassfish.grizzly.http.server.HttpHandler} instance.
-     * @param connectors connectors
-     *                   {@link org.glassfish.grizzly.spdy.SpdyAddOn}.
-     * @param jmxEnabled {@link org.glassfish.grizzly.http.server.ServerConfiguration#setJmxEnabled(boolean)}.
-     * @param start      if set to false, server will not get started, this allows end users to set
-     *                   additional properties on the underlying listener.
-     * @return newly created {@link HttpServer}.
-     * @throws javax.ws.rs.ProcessingException
-     * @see GrizzlyHttpContainer
+     * @param application {@link ameba.Application}
+     * @return newly created {@link org.glassfish.grizzly.http.server.HttpServer}.
+     * @see org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpContainer
      */
     @SuppressWarnings("unchecked")
-    public static HttpServer createHttpServer(final HttpHandler handler,
-                                              final Map<String, Object> properties,
-                                              List<Connector> connectors,
-                                              final boolean jmxEnabled,
-                                              final boolean start)
+    public static HttpServer createHttpServer(final Application application)
             throws ProcessingException {
-
+        final Map<String, Object> properties = application.getProperties();
+        final List<Connector> connectors = application.getConnectors();
         List<NetworkListener> listeners = createListeners(connectors, createCompressionConfig(properties));
 
         boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
         final ServerContainer webSocketContainer = webSocketEnabled ? bindWebSocket(properties, listeners) : null;
+        if (webSocketContainer != null)
+            application.register(new AbstractBinder() {
+                @Override
+                protected void configure() {
+                    bindFactory(new Factory<ServerContainer>() {
+                        @Override
+                        public ServerContainer provide() {
+                            return webSocketContainer;
+                        }
+
+                        @Override
+                        public void dispose(ServerContainer instance) {
+                            instance.stop();
+                        }
+                    }).to(javax.websocket.server.ServerContainer.class);
+                }
+            });
 
         final HttpServer server = new HttpServer() {
             @Override
@@ -298,7 +310,7 @@ public class GrizzlyServerFactory {
             }
         };
 
-        server.getServerConfiguration().setJmxEnabled(jmxEnabled);
+        server.getServerConfiguration().setJmxEnabled(application.isJmxEnabled());
 
         ThreadPoolConfig workerThreadPoolConfig = null;
 
@@ -335,25 +347,29 @@ public class GrizzlyServerFactory {
 
             server.addListener(listener);
         }
-        // Map the path to the processor.
         final ServerConfiguration config = server.getServerConfiguration();
-        if (handler != null) {
-            config.addHttpHandler(handler);
-        }
 
         config.setPassTraceRequest(true);
 
-        if (start) {
-            try {
-                // Start the server.
-                server.start();
-            } catch (IOException ex) {
-                String msg = "无法启动HTTP服务";
-                logger.error(msg, ex);
-                throw new ProcessingException(msg, ex);
+        config.setHttpServerName(application.getApplicationName());
+        config.setHttpServerVersion(application.getApplicationVersion().toString());
+        config.setName("Ameba-HttpServer-" + application.getApplicationName());
+
+        String charset = StringUtils.defaultIfBlank((String) application.getProperty("app.encoding"), "utf-8");
+        config.setSendFileEnabled(true);
+        if (!application.isRegistered(AssetsFeature.class)) {
+            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(application);
+            Set<String> mapKey = assetMap.keySet();
+            for (String key : mapKey) {
+                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(), key + "/");
+                httpHandler.setRequestURIEncoding(charset);
+                httpHandler.setFileCacheEnabled(application.getMode().isProd());
+                config.addHttpHandler(httpHandler,
+                        assetMap.get(key));
             }
         }
 
+        config.setDefaultQueryEncoding(Charset.forName(charset));
         return server;
     }
 
