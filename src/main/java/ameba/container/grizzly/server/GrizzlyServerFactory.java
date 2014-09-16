@@ -249,6 +249,25 @@ public class GrizzlyServerFactory {
         return sslEngineConfigurator;
     }
 
+    private static void bindInjectWebsocket(Application application, final ServerContainer webSocketContainer) {
+        application.register(new AbstractBinder() {
+            @Override
+            protected void configure() {
+                bindFactory(new Factory<ServerContainer>() {
+                    @Override
+                    public ServerContainer provide() {
+                        return webSocketContainer;
+                    }
+
+                    @Override
+                    public void dispose(ServerContainer instance) {
+                        instance.stop();
+                    }
+                }).to(javax.websocket.server.ServerContainer.class);
+            }
+        });
+    }
+
     /**
      * Creates HttpServer instance.
      *
@@ -265,23 +284,9 @@ public class GrizzlyServerFactory {
 
         boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
         final ServerContainer webSocketContainer = webSocketEnabled ? bindWebSocket(properties, listeners) : null;
-        if (webSocketContainer != null)
-            application.register(new AbstractBinder() {
-                @Override
-                protected void configure() {
-                    bindFactory(new Factory<ServerContainer>() {
-                        @Override
-                        public ServerContainer provide() {
-                            return webSocketContainer;
-                        }
-
-                        @Override
-                        public void dispose(ServerContainer instance) {
-                            instance.stop();
-                        }
-                    }).to(javax.websocket.server.ServerContainer.class);
-                }
-            });
+        if (webSocketContainer != null) {
+            bindInjectWebsocket(application, webSocketContainer);
+        }
 
         final HttpServer server = new HttpServer() {
             @Override
