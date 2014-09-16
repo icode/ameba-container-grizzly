@@ -74,6 +74,7 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         final org.glassfish.tyrus.spi.Connection connection = getConnection(ctx);
         if (connection != null) {
+            logger.trace("websocket closing: {}", connection);
             TaskProcessor taskProcessor = getTaskProcessor(ctx);
             taskProcessor.processTask(new CloseTask(connection, CloseReasons.CLOSED_ABNORMALLY.getCloseReason(), ctx.getConnection()));
         }
