@@ -3,6 +3,7 @@ package ameba.container.grizzly.server;
 import ameba.container.grizzly.server.websocket.WebSocketAddOn;
 import ameba.server.Connector;
 import ameba.util.ClassUtils;
+import ameba.websocket.WebSocketFeature;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.GrizzlyFuture;
@@ -267,7 +268,8 @@ public class GrizzlyServerFactory {
 
         List<NetworkListener> listeners = createListeners(connectors, createCompressionConfig(properties));
 
-        final ServerContainer webSocketContainer = bindWebSocket(properties, listeners);
+        boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
+        final ServerContainer webSocketContainer = webSocketEnabled ? bindWebSocket(properties, listeners) : null;
 
         final HttpServer server = new HttpServer() {
             @Override
