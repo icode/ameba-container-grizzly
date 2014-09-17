@@ -22,7 +22,6 @@ import org.glassfish.tyrus.core.Utils;
 
 import javax.websocket.DeploymentException;
 import javax.websocket.server.ServerContainer;
-import javax.ws.rs.ProcessingException;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
@@ -38,30 +37,23 @@ public class GrizzlyContainer extends Container {
 
     private HttpServer httpServer;
 
-    private GrizzlyHttpContainer containerProvider;
+    private GrizzlyHttpContainer container;
 
     private WebSocketContainerProvider webSocketContainerProvider;
 
     private ServerContainer serverContainer;
 
-    protected GrizzlyContainer(Application app) {
+    public GrizzlyContainer(Application app) {
         super(app);
-
-        initHttpServer();
-        containerProvider = ContainerFactory.createContainer(GrizzlyHttpContainer.class, application);
-        ServerConfiguration serverConfiguration = httpServer.getServerConfiguration();
-        serverConfiguration.addHttpHandler(containerProvider);
-
-        webSocketContainerProvider = new WebSocketContainerProvider() {
-            @Override
-            public void dispose(ServerContainer serverContainer) {
-                ((org.glassfish.tyrus.spi.ServerContainer) serverContainer).stop();
-            }
-        };
     }
 
-    public void initHttpServer()
-            throws ProcessingException {
+    @Override
+    public ServiceLocator getServiceLocator() {
+        return container.getApplicationHandler().getServiceLocator();
+    }
+
+    @Override
+    protected void configureHttpServer() {
         final Map<String, Object> properties = application.getProperties();
         final List<Connector> connectors = application.getConnectors();
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors, GrizzlyServerUtil.createCompressionConfig(properties));
@@ -159,15 +151,27 @@ public class GrizzlyContainer extends Container {
         config.setDefaultQueryEncoding(Charset.forName(charset));
     }
 
-
     @Override
-    public ServiceLocator getServiceLocator() {
-        return containerProvider.getApplicationHandler().getServiceLocator();
+    protected void configureHttpContainer() {
+        container = ContainerFactory.createContainer(GrizzlyHttpContainer.class, application);
+        ServerConfiguration serverConfiguration = httpServer.getServerConfiguration();
+        serverConfiguration.addHttpHandler(container);
     }
 
     @Override
     public ServerContainer getWebSocketContainer() {
         return serverContainer;
+    }
+
+    @Override
+    protected void configureWebSocketContainerProvider() {
+        webSocketContainerProvider = new WebSocketContainerProvider() {
+            @Override
+            public void dispose(ServerContainer serverContainer) {
+                if (serverContainer instanceof org.glassfish.tyrus.spi.ServerContainer)
+                    ((org.glassfish.tyrus.spi.ServerContainer) serverContainer).stop();
+            }
+        };
     }
 
     @Override
