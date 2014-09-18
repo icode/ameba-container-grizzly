@@ -35,6 +35,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class GrizzlyContainer extends Container {
 
+    private static final String TYPE_NAME = "Grizzly";
+
     private HttpServer httpServer;
 
     private GrizzlyHttpContainer container;
@@ -48,7 +50,6 @@ public class GrizzlyContainer extends Container {
     public GrizzlyContainer(Application app) {
         super(app);
     }
-
 
 
     @Override
@@ -200,5 +201,10 @@ public class GrizzlyContainer extends Container {
     @Override
     public List<Connector> getConnectors() {
         return connectors;
+    }
+
+    @Override
+    public String getType() {
+        return TYPE_NAME;
     }
 }
