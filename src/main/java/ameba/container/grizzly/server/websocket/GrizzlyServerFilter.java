@@ -197,6 +197,7 @@ public class GrizzlyServerFilter extends BaseFilter {
                         // might not be necessary, connection is going to be recycled/freed anyway
                         TYRUS_CONNECTION.remove(grizzlyConnection);
                         TASK_PROCESSOR.remove(grizzlyConnection);
+                        logger.trace("websocket closed: {}", connection);
                     }
                 });
 
