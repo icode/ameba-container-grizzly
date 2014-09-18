@@ -1,7 +1,7 @@
 package ameba.container.grizzly.server;
 
 import ameba.container.grizzly.server.websocket.WebSocketAddOn;
-import ameba.server.Connector;
+import ameba.container.server.Connector;
 import ameba.util.ClassUtils;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;

@@ -2,9 +2,9 @@ package ameba.container.grizzly.server;
 
 import ameba.Application;
 import ameba.container.Container;
+import ameba.container.server.Connector;
 import ameba.exceptions.AmebaException;
 import ameba.mvc.assets.AssetsFeature;
-import ameba.server.Connector;
 import ameba.util.ClassUtils;
 import ameba.websocket.WebSocketFeature;
 import org.apache.commons.lang3.StringUtils;
@@ -43,9 +43,13 @@ public class GrizzlyContainer extends Container {
 
     private ServerContainer serverContainer;
 
+    private List<Connector> connectors;
+
     public GrizzlyContainer(Application app) {
         super(app);
     }
+
+
 
     @Override
     public ServiceLocator getServiceLocator() {
@@ -55,7 +59,7 @@ public class GrizzlyContainer extends Container {
     @Override
     protected void configureHttpServer() {
         final Map<String, Object> properties = application.getProperties();
-        final List<Connector> connectors = application.getConnectors();
+        connectors = Connector.createDefaultConnectors(properties);
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors, GrizzlyServerUtil.createCompressionConfig(properties));
 
         boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
@@ -191,5 +195,10 @@ public class GrizzlyContainer extends Container {
     @Override
     public void shutdown() throws ExecutionException, InterruptedException {
         httpServer.shutdown().get();
+    }
+
+    @Override
+    public List<Connector> getConnectors() {
+        return connectors;
     }
 }
