@@ -4,6 +4,7 @@ import ameba.container.grizzly.server.websocket.WebSocketAddOn;
 import ameba.container.server.Connector;
 import ameba.util.ClassUtils;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.CompressionConfig;
 import org.glassfish.grizzly.http.ajp.AjpAddOn;
@@ -277,7 +278,7 @@ public class GrizzlyServerUtil {
                     .applicationEventListener(finalApplicationEventListener)
                     .maxSessionsPerApp(maxSessionsPerApp)
                     .maxSessionsPerRemoteAddr(maxSessionsPerRemoteAddr)
-                    .parallelBroadcastEnabled(parallelBroadcastEnabled)
+                    .parallelBroadcastEnabled(BooleanUtils.isTrue(parallelBroadcastEnabled))
                     .tracingType(tracingType)
                     .tracingThreshold(tracingThreshold)
                     .build();
