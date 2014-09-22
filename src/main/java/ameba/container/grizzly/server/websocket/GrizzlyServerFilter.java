@@ -1,5 +1,6 @@
 package ameba.container.grizzly.server.websocket;
 
+import com.google.common.collect.Maps;
 import org.glassfish.grizzly.*;
 import org.glassfish.grizzly.Connection;
 import org.glassfish.grizzly.attributes.Attribute;
@@ -9,7 +10,9 @@ import org.glassfish.grizzly.filterchain.FilterChain;
 import org.glassfish.grizzly.filterchain.FilterChainContext;
 import org.glassfish.grizzly.filterchain.NextAction;
 import org.glassfish.grizzly.http.*;
+import org.glassfish.grizzly.http.util.Parameters;
 import org.glassfish.grizzly.memory.ByteBufferArray;
+import org.glassfish.grizzly.utils.Charsets;
 import org.glassfish.tyrus.container.grizzly.client.GrizzlyWriter;
 import org.glassfish.tyrus.container.grizzly.client.TaskProcessor;
 import org.glassfish.tyrus.core.CloseReasons;
@@ -25,6 +28,7 @@ import javax.websocket.CloseReason;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 
@@ -81,14 +85,14 @@ public class GrizzlyServerFilter extends BaseFilter {
     }
 
     /**
-     * Handle Grizzly {@link org.glassfish.grizzly.Connection} read phase. If the {@link org.glassfish.grizzly.Connection} has associated {@link org.glassfish.tyrus.core.TyrusWebSocket} object
+     * Handle Grizzly {@link Connection} read phase. If the {@link Connection} has associated {@link org.glassfish.tyrus.core.TyrusWebSocket} object
      * (websocket connection), we check if websocket handshake has been completed for this connection, if not -
      * initiate/validate handshake. If handshake has been completed - parse websocket {@link org.glassfish.tyrus.core.frame.Frame}s one by one and
      * pass processing to appropriate {@link org.glassfish.tyrus.core.TyrusWebSocket}: {@link org.glassfish.tyrus.core.TyrusEndpointWrapper} for server- and client- side
      * connections.
      *
      * @param ctx {@link FilterChainContext}
-     * @return {@link NextAction} instruction for {@link org.glassfish.grizzly.filterchain.FilterChain}, how it should continue the execution
+     * @return {@link NextAction} instruction for {@link FilterChain}, how it should continue the execution
      * @throws IOException
      */
     @Override
@@ -176,7 +180,7 @@ public class GrizzlyServerFilter extends BaseFilter {
         switch (upgradeInfo.getStatus()) {
             case SUCCESS:
                 final org.glassfish.grizzly.Connection grizzlyConnection = ctx.getConnection();
-                write(ctx, upgradeRequest, upgradeResponse);
+                write(ctx, upgradeResponse);
 
                 final org.glassfish.tyrus.spi.Connection connection = upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()), new org.glassfish.tyrus.spi.Connection.CloseListener() {
                     @Override
@@ -207,7 +211,7 @@ public class GrizzlyServerFilter extends BaseFilter {
                 return ctx.getStopAction();
 
             case HANDSHAKE_FAILED:
-                write(ctx, upgradeRequest, upgradeResponse);
+                write(ctx, upgradeResponse);
                 content.recycle();
 
                 logger.trace("handleHandshake websocket failed: content-size={} headers=\n{}",
@@ -224,7 +228,7 @@ public class GrizzlyServerFilter extends BaseFilter {
         return ctx.getStopAction();
     }
 
-    private void write(FilterChainContext ctx, UpgradeRequest request, UpgradeResponse response) {
+    private void write(FilterChainContext ctx, UpgradeResponse response) {
         final HttpResponsePacket responsePacket = ((HttpRequestPacket) ((HttpContent) ctx.getMessage()).getHttpHeader()).getResponse();
         responsePacket.setProtocol(Protocol.HTTP_1_1);
         responsePacket.setStatus(response.getStatus());
@@ -250,9 +254,33 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         final HttpRequestPacket requestPacket = (HttpRequestPacket) requestContent.getHttpHeader();
 
+        Parameters parameters = new Parameters();
+
+        parameters.setHeaders(requestPacket.getHeaders());
+        parameters.setQuery(requestPacket.getQueryStringDC());
+
+        String charset = requestContent.getHttpHeader().getCharacterEncoding();
+
+        Charset httpCharset = Charsets.UTF8_CHARSET;
+
+        try {
+            httpCharset = Charsets.lookupCharset(charset);
+        } catch (Exception e){
+            // noop
+        }
+
+        parameters.setQueryStringEncoding(httpCharset);
+
+        Map<String, String[]> parameterMap = Maps.newHashMap();
+
+        for (String paramName : parameters.getParameterNames()) {
+            parameterMap.put(paramName, parameters.getParameterValues(paramName));
+        }
+
         final RequestContext requestContext = RequestContext.Builder.create()
                 .requestURI(URI.create(requestPacket.getRequestURI()))
                 .queryString(requestPacket.getQueryString())
+                .parameterMap(parameterMap)
                 .secure(requestPacket.isSecure())
                 .remoteAddr(requestPacket.getRemoteAddress())
                 .build();
