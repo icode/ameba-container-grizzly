@@ -1,6 +1,6 @@
 package ameba.container.grizzly.server;
 
-import ameba.Application;
+import ameba.core.Application;
 import ameba.container.Container;
 import ameba.container.server.Connector;
 import ameba.exceptions.AmebaException;
