@@ -1,6 +1,5 @@
 package ameba.container.grizzly.server;
 
-import ameba.Ameba;
 import ameba.container.Container;
 import ameba.container.server.Connector;
 import ameba.core.Application;
@@ -133,30 +132,10 @@ public class GrizzlyContainer extends Container {
 
         config.setPassTraceRequest(true);
 
-        config.setHttpServerName("Ameba");
-        config.setHttpServerVersion(Ameba.getVersion());
-        config.setName("Ameba-HttpServer-" + application.getApplicationName());
+        config.setHttpServerName(application.getApplicationName());
+        config.setHttpServerVersion(application.getApplicationVersion().toString());
+        config.setName("Ameba-HttpServer-" + application.getApplicationName().toUpperCase());
 
-        String charset = StringUtils.defaultIfBlank((String) application.getProperty("app.encoding"), "utf-8");
-        config.setSendFileEnabled(true);
-        if (!application.isRegistered(AssetsFeature.class)) {
-            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(application);
-            Set<String> mapKey = assetMap.keySet();
-            for (String key : mapKey) {
-                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(), key + "/") {
-                    @Override
-                    protected void onMissingResource(Request request, Response response) throws Exception {
-                        container.service(request, response);
-                    }
-                };
-                httpHandler.setRequestURIEncoding(charset);
-                httpHandler.setFileCacheEnabled(application.getMode().isProd());
-                config.addHttpHandler(httpHandler,
-                        assetMap.get(key));
-            }
-        }
-
-        config.setDefaultQueryEncoding(Charset.forName(charset));
     }
 
     @Override
@@ -164,6 +143,27 @@ public class GrizzlyContainer extends Container {
         container = ContainerFactory.createContainer(GrizzlyHttpContainer.class, application);
         ServerConfiguration serverConfiguration = httpServer.getServerConfiguration();
         serverConfiguration.addHttpHandler(container);
+
+        String charset = StringUtils.defaultIfBlank((String) application.getProperty("app.encoding"), "utf-8");
+        serverConfiguration.setSendFileEnabled(true);
+        if (!application.isRegistered(AssetsFeature.class)) {
+            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(application);
+            Set<String> mapKey = assetMap.keySet();
+            for (String key : mapKey) {
+                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(),
+                        assetMap.get(key)) {
+                    @Override
+                    protected void onMissingResource(Request request, Response response) throws Exception {
+                        container.service(request, response);
+                    }
+                };
+                httpHandler.setRequestURIEncoding(charset);
+                httpHandler.setFileCacheEnabled(application.getMode().isProd());
+                serverConfiguration.addHttpHandler(httpHandler, key.startsWith("/") ? key : "/" + key);
+            }
+        }
+
+        serverConfiguration.setDefaultQueryEncoding(Charset.forName(charset));
     }
 
     @Override
