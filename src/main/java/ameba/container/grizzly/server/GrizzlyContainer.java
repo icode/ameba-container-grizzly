@@ -1,18 +1,16 @@
 package ameba.container.grizzly.server;
 
-import ameba.core.Application;
+import ameba.Ameba;
 import ameba.container.Container;
 import ameba.container.server.Connector;
+import ameba.core.Application;
 import ameba.exceptions.AmebaException;
 import ameba.mvc.assets.AssetsFeature;
 import ameba.util.ClassUtils;
 import ameba.websocket.WebSocketFeature;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.GrizzlyFuture;
-import org.glassfish.grizzly.http.server.CLStaticHttpHandler;
-import org.glassfish.grizzly.http.server.HttpServer;
-import org.glassfish.grizzly.http.server.NetworkListener;
-import org.glassfish.grizzly.http.server.ServerConfiguration;
+import org.glassfish.grizzly.http.server.*;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.hk2.api.ServiceLocator;
@@ -135,8 +133,8 @@ public class GrizzlyContainer extends Container {
 
         config.setPassTraceRequest(true);
 
-        config.setHttpServerName(application.getApplicationName());
-        config.setHttpServerVersion(application.getApplicationVersion().toString());
+        config.setHttpServerName("Ameba");
+        config.setHttpServerVersion(Ameba.getVersion());
         config.setName("Ameba-HttpServer-" + application.getApplicationName());
 
         String charset = StringUtils.defaultIfBlank((String) application.getProperty("app.encoding"), "utf-8");
@@ -145,7 +143,12 @@ public class GrizzlyContainer extends Container {
             Map<String, String[]> assetMap = AssetsFeature.getAssetMap(application);
             Set<String> mapKey = assetMap.keySet();
             for (String key : mapKey) {
-                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(), key + "/");
+                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(), key + "/") {
+                    @Override
+                    protected void onMissingResource(Request request, Response response) throws Exception {
+                        container.service(request, response);
+                    }
+                };
                 httpHandler.setRequestURIEncoding(charset);
                 httpHandler.setFileCacheEnabled(application.getMode().isProd());
                 config.addHttpHandler(httpHandler,
