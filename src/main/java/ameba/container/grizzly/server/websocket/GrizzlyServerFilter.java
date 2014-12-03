@@ -28,11 +28,17 @@ import javax.websocket.CloseReason;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 
 /**
+ * WebSocket {@link BaseFilter} implementation, which supposed to be placed into a {@link FilterChain} right after HTTP
+ * Filter: {@link HttpServerFilter}, {@link HttpClientFilter}; depending whether it's server or client side. The
+ * <tt>WebSocketFilter</tt> handles websocket connection, handshake phases and, when receives a websocket frame -
+ * redirects it to appropriate connection ({@link org.glassfish.tyrus.core.TyrusEndpointWrapper}, {@link org.glassfish.tyrus.core.TyrusWebSocket}) for processing.
+ *
+ * @author Alexey Stashok
+ * @author Pavel Bucek (pavel.bucek at oracle.com)
  * @author icode
  */
 public class GrizzlyServerFilter extends BaseFilter {
@@ -46,9 +52,9 @@ public class GrizzlyServerFilter extends BaseFilter {
             .createAttribute(TaskProcessor.class.getName() + ".TaskProcessor");
 
     private final ServerContainer serverContainer;
+    private final String contextPath;
 
     public final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
-
 
     // ------------------------------------------------------------ Constructors
 
@@ -57,8 +63,9 @@ public class GrizzlyServerFilter extends BaseFilter {
      *
      * @param serverContainer
      */
-    public GrizzlyServerFilter(ServerContainer serverContainer) {
+    public GrizzlyServerFilter(ServerContainer serverContainer, String contextPath) {
         this.serverContainer = serverContainer;
+        this.contextPath = contextPath.endsWith("/") ? contextPath : contextPath + "/";
     }
 
     // ----------------------------------------------------- Methods from Filter
@@ -93,7 +100,7 @@ public class GrizzlyServerFilter extends BaseFilter {
      *
      * @param ctx {@link FilterChainContext}
      * @return {@link NextAction} instruction for {@link FilterChain}, how it should continue the execution
-     * @throws IOException
+     * @throws IOException TODO
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -174,6 +181,12 @@ public class GrizzlyServerFilter extends BaseFilter {
      */
     private NextAction handleHandshake(final FilterChainContext ctx, HttpContent content) {
         final UpgradeRequest upgradeRequest = createWebSocketRequest(content);
+
+        if (!upgradeRequest.getRequestURI().getPath().startsWith(contextPath)) {
+            // the request is not for the deployed application
+            return ctx.getInvokeAction();
+        }
+        // TODO: final UpgradeResponse upgradeResponse = GrizzlyUpgradeResponse(HttpResponsePacket)
         final UpgradeResponse upgradeResponse = new TyrusUpgradeResponse();
         final WebSocketEngine.UpgradeInfo upgradeInfo = serverContainer.getWebSocketEngine().upgrade(upgradeRequest, upgradeResponse);
 
@@ -233,6 +246,9 @@ public class GrizzlyServerFilter extends BaseFilter {
         responsePacket.setProtocol(Protocol.HTTP_1_1);
         responsePacket.setStatus(response.getStatus());
 
+        // TODO
+//        responsePacket.setReasonPhrase(response.getReasonPhrase());
+
         for (Map.Entry<String, List<String>> entry : response.getHeaders().entrySet()) {
             responsePacket.setHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
         }
@@ -256,20 +272,8 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         Parameters parameters = new Parameters();
 
-        parameters.setHeaders(requestPacket.getHeaders());
         parameters.setQuery(requestPacket.getQueryStringDC());
-
-        String charset = requestContent.getHttpHeader().getCharacterEncoding();
-
-        Charset httpCharset = Charsets.UTF8_CHARSET;
-
-        try {
-            httpCharset = Charsets.lookupCharset(charset);
-        } catch (Exception e){
-            // noop
-        }
-
-        parameters.setQueryStringEncoding(httpCharset);
+        parameters.setQueryStringEncoding(Charsets.UTF8_CHARSET);
 
         Map<String, String[]> parameterMap = Maps.newHashMap();
 

@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class GrizzlyContainer extends Container {
 
+    public static final String WEB_SOCKET_CONTEXT_PATH = "websocket.contextPath";
+
     private static final String TYPE_NAME = "Grizzly";
 
     private HttpServer httpServer;
@@ -69,7 +71,7 @@ public class GrizzlyContainer extends Container {
             public synchronized void start() throws IOException {
                 if (webSocketContainer != null)
                     try {
-                        webSocketContainer.start("/", -1);
+                        webSocketContainer.start(StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/"), -1);
                     } catch (DeploymentException e) {
                         logger.error("启动websocket容器失败", e);
                     }

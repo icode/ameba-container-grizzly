@@ -305,7 +305,7 @@ public class GrizzlyServerUtil {
                 contextPath = rootPath;
                 // server = HttpServer.createSimpleServer(rootPath, port);
 
-                WebSocketAddOn addOn = new WebSocketAddOn(this);
+                WebSocketAddOn addOn = new WebSocketAddOn(this, contextPath);
 
                 for (NetworkListener listener : listeners) {
                     // idle timeout set to indefinite.
