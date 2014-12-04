@@ -105,8 +105,16 @@ public class GrizzlyServerFilter extends BaseFilter {
     @Override
     @SuppressWarnings("unchecked")
     public NextAction handleRead(FilterChainContext ctx) throws IOException {
+
         // Get the parsed HttpContent (we assume prev. filter was HTTP)
         final HttpContent message = ctx.getMessage();
+
+        HttpRequestPacket requestPacket = (HttpRequestPacket) message.getHttpHeader();
+
+        if (!requestPacket.getRequestURI().startsWith(contextPath)) {
+            // the request is not for the deployed application
+            return ctx.getInvokeAction();
+        }
 
         final org.glassfish.tyrus.spi.Connection tyrusConnection = getConnection(ctx);
 
@@ -180,12 +188,8 @@ public class GrizzlyServerFilter extends BaseFilter {
      * @return {@link NextAction} instruction for {@link org.glassfish.grizzly.filterchain.FilterChain}, how it should continue the execution
      */
     private NextAction handleHandshake(final FilterChainContext ctx, HttpContent content) {
-        final UpgradeRequest upgradeRequest = createWebSocketRequest(content);
 
-        if (!upgradeRequest.getRequestURI().getPath().startsWith(contextPath)) {
-            // the request is not for the deployed application
-            return ctx.getInvokeAction();
-        }
+        final UpgradeRequest upgradeRequest = createWebSocketRequest(content);
         // TODO: final UpgradeResponse upgradeResponse = GrizzlyUpgradeResponse(HttpResponsePacket)
         final UpgradeResponse upgradeResponse = new TyrusUpgradeResponse();
         final WebSocketEngine.UpgradeInfo upgradeInfo = serverContainer.getWebSocketEngine().upgrade(upgradeRequest, upgradeResponse);
@@ -266,9 +270,9 @@ public class GrizzlyServerFilter extends BaseFilter {
         }
     }
 
-    private static UpgradeRequest createWebSocketRequest(final HttpContent requestContent) {
+    private static UpgradeRequest createWebSocketRequest(final HttpContent content) {
 
-        final HttpRequestPacket requestPacket = (HttpRequestPacket) requestContent.getHttpHeader();
+        final HttpRequestPacket requestPacket = (HttpRequestPacket) content.getHttpHeader();
 
         Parameters parameters = new Parameters();
 
