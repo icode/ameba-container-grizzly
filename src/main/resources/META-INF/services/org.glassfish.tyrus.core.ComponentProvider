@@ -1,1 +1,1 @@
-ameba.container.grizzly.server.websocket.Hk2ComponentProvider
+ameba.container.grizzly.server.http.websocket.Hk2ComponentProvider

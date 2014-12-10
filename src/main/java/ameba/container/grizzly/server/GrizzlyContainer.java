@@ -1,6 +1,8 @@
 package ameba.container.grizzly.server;
 
 import ameba.container.Container;
+import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
+import ameba.container.grizzly.server.http.GrizzlyServerUtil;
 import ameba.container.server.Connector;
 import ameba.core.Application;
 import ameba.exceptions.AmebaException;
@@ -13,7 +15,6 @@ import org.glassfish.grizzly.http.server.*;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.hk2.api.ServiceLocator;
-import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpContainer;
 import org.glassfish.jersey.server.ContainerFactory;
 import org.glassfish.tyrus.core.Utils;
 

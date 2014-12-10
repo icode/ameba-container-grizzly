@@ -1,4 +1,4 @@
-package ameba.container.grizzly.server.websocket;
+package ameba.container.grizzly.server.http.websocket;
 
 import com.google.common.collect.Maps;
 import org.glassfish.grizzly.*;
