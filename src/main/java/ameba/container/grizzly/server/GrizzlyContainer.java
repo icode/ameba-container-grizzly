@@ -60,7 +60,7 @@ public class GrizzlyContainer extends Container {
 
     @Override
     protected void configureHttpServer() {
-        final Map<String, Object> properties = application.getProperties();
+        final Map<String, Object> properties = getApplication().getProperties();
         connectors = Connector.createDefaultConnectors(properties);
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors, GrizzlyServerUtil.createCompressionConfig(properties));
 
@@ -95,7 +95,7 @@ public class GrizzlyContainer extends Container {
             }
         };
 
-        httpServer.getServerConfiguration().setJmxEnabled(application.isJmxEnabled());
+        httpServer.getServerConfiguration().setJmxEnabled(getApplication().isJmxEnabled());
 
         ThreadPoolConfig workerThreadPoolConfig = null;
 
@@ -136,22 +136,22 @@ public class GrizzlyContainer extends Container {
 
         config.setPassTraceRequest(true);
 
-        config.setHttpServerName(application.getApplicationName());
-        config.setHttpServerVersion(application.getApplicationVersion().toString());
-        config.setName("Ameba-HttpServer-" + application.getApplicationName().toUpperCase());
+        config.setHttpServerName(getApplication().getApplicationName());
+        config.setHttpServerVersion(getApplication().getApplicationVersion().toString());
+        config.setName("Ameba-HttpServer-" + getApplication().getApplicationName().toUpperCase());
 
     }
 
     @Override
     protected void configureHttpContainer() {
-        container = ContainerFactory.createContainer(GrizzlyHttpContainer.class, application);
+        container = ContainerFactory.createContainer(GrizzlyHttpContainer.class, getApplication());
         ServerConfiguration serverConfiguration = httpServer.getServerConfiguration();
         serverConfiguration.addHttpHandler(container);
 
-        String charset = StringUtils.defaultIfBlank((String) application.getProperty("app.encoding"), "utf-8");
+        String charset = StringUtils.defaultIfBlank((String) getApplication().getProperty("app.encoding"), "utf-8");
         serverConfiguration.setSendFileEnabled(true);
-        if (!application.isRegistered(AssetsFeature.class)) {
-            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(application);
+        if (!getApplication().isRegistered(AssetsFeature.class)) {
+            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(getApplication());
             Set<String> mapKey = assetMap.keySet();
             for (String key : mapKey) {
                 CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(),
@@ -162,7 +162,7 @@ public class GrizzlyContainer extends Container {
                     }
                 };
                 httpHandler.setRequestURIEncoding(charset);
-                httpHandler.setFileCacheEnabled(application.getMode().isProd());
+                httpHandler.setFileCacheEnabled(getApplication().getMode().isProd());
                 serverConfiguration.addHttpHandler(httpHandler, key.startsWith("/") ? key : "/" + key);
             }
         }
