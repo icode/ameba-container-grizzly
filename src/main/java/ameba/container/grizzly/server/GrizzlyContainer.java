@@ -191,7 +191,7 @@ public class GrizzlyContainer extends Container {
     }
 
     @Override
-    public void start() {
+    public void doStart() {
         try {
             httpServer.start();
         } catch (IOException e) {
