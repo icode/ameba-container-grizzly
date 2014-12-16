@@ -16,6 +16,7 @@ import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.jersey.server.ContainerFactory;
+import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.tyrus.core.Utils;
 
 import javax.websocket.DeploymentException;
@@ -188,6 +189,11 @@ public class GrizzlyContainer extends Container {
     @Override
     protected WebSocketContainerProvider getWebSocketContainerProvider() {
         return webSocketContainerProvider;
+    }
+
+    @Override
+    protected void doReload(ResourceConfig resourceConfig) {
+        container.reload(resourceConfig);
     }
 
     @Override
