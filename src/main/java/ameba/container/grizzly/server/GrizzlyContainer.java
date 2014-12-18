@@ -5,7 +5,7 @@ import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
 import ameba.container.server.Connector;
 import ameba.core.Application;
-import ameba.exceptions.AmebaException;
+import ameba.exception.AmebaException;
 import ameba.mvc.assets.AssetsFeature;
 import ameba.util.ClassUtils;
 import ameba.websocket.WebSocketFeature;
