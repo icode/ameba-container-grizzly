@@ -86,7 +86,7 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
 
     /**
      * An internal binder to enable Grizzly HTTP container specific types injection.
-     *
+     * <p/>
      * This binder allows to inject underlying Grizzly HTTP request and response instances.
      * Note that since Grizzly {@code Request} class is not proxiable as it does not expose an empty constructor,
      * the injection of Grizzly request instance into singleton JAX-RS and Jersey providers is only supported via
@@ -98,12 +98,14 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
         protected void configure() {
             bindFactory(GrizzlyRequestReferencingFactory.class).to(Request.class)
                     .proxy(false).in(RequestScoped.class);
-            bindFactory(ReferencingFactory.<Request>referenceFactory()).to(new TypeLiteral<Ref<Request>>() {})
+            bindFactory(ReferencingFactory.<Request>referenceFactory()).to(new TypeLiteral<Ref<Request>>() {
+            })
                     .in(RequestScoped.class);
 
             bindFactory(GrizzlyResponseReferencingFactory.class).to(Response.class)
                     .proxy(true).proxyForSameScope(false).in(RequestScoped.class);
-            bindFactory(ReferencingFactory.<Response>referenceFactory()).to(new TypeLiteral<Ref<Response>>() {})
+            bindFactory(ReferencingFactory.<Response>referenceFactory()).to(new TypeLiteral<Ref<Response>>() {
+            })
                     .in(RequestScoped.class);
         }
     }
@@ -346,13 +348,17 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
 
     @Override
     public void reload(final ResourceConfig configuration) {
-        this.containerListener.onShutdown(this);
-        appHandler.getServiceLocator().shutdown();
-        appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
-        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
-        containerListener.onReload(this);
-        containerListener.onStartup(this);
-        cacheConfigSetStatusOverSendError();
+        ServiceLocator locator = appHandler.getServiceLocator();
+        try {
+            this.containerListener.onShutdown(this);
+            appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
+            this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
+            containerListener.onReload(this);
+            containerListener.onStartup(this);
+            cacheConfigSetStatusOverSendError();
+        } finally {
+            locator.shutdown();
+        }
     }
 
     @Override
