@@ -348,17 +348,12 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
 
     @Override
     public void reload(final ResourceConfig configuration) {
-        ServiceLocator locator = appHandler.getServiceLocator();
-        try {
-            this.containerListener.onShutdown(this);
-            appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
-            this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
-            containerListener.onReload(this);
-            containerListener.onStartup(this);
-            cacheConfigSetStatusOverSendError();
-        } finally {
-            locator.shutdown();
-        }
+        this.containerListener.onShutdown(this);
+        appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
+        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
+        containerListener.onReload(this);
+        containerListener.onStartup(this);
+        cacheConfigSetStatusOverSendError();
     }
 
     @Override
