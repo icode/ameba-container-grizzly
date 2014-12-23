@@ -313,9 +313,14 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
         try {
             logger.debugLog("GrizzlyHttpContainer.service(...) started");
             final URI baseUri = getBaseUri(request);
-            final ContainerRequest requestContext = new ContainerRequest(baseUri,
+            final ContainerRequest requestContext = new ameba.container.server.Request(baseUri,
                     getRequestUri(baseUri, request), request.getMethod().getMethodString(),
-                    getSecurityContext(request), new GrizzlyRequestPropertiesDelegate(request));
+                    getSecurityContext(request), new GrizzlyRequestPropertiesDelegate(request)) {
+                @Override
+                public String getRemoteAddr() {
+                    return request.getRemoteAddr();
+                }
+            };
             requestContext.setEntityStream(request.getInputStream());
             for (final String headerName : request.getHeaderNames()) {
                 requestContext.headers(headerName, request.getHeaders(headerName));

@@ -101,14 +101,14 @@ public class GrizzlyContainer extends Container {
 
         String workerThreadPoolConfigClass = Utils.getProperty(properties, GrizzlyServerUtil.WORKER_THREAD_POOL_CONFIG, String.class);
         if (StringUtils.isNotBlank(workerThreadPoolConfigClass)) {
-            workerThreadPoolConfig = (ThreadPoolConfig) ClassUtils.newInstance(workerThreadPoolConfigClass);
+            workerThreadPoolConfig = ClassUtils.newInstance(workerThreadPoolConfigClass);
         }
 
         ThreadPoolConfig selectorThreadPoolConfig = null;
 
         String selectorThreadPoolConfigClass = Utils.getProperty(properties, GrizzlyServerUtil.SELECTOR_THREAD_POOL_CONFIG, String.class);
         if (StringUtils.isNotBlank(selectorThreadPoolConfigClass)) {
-            selectorThreadPoolConfig = (ThreadPoolConfig) ClassUtils.newInstance(selectorThreadPoolConfigClass);
+            selectorThreadPoolConfig = ClassUtils.newInstance(selectorThreadPoolConfigClass);
         }
 
 
