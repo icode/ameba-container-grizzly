@@ -144,14 +144,14 @@ public class GrizzlyContainer extends Container {
 
     @Override
     protected void configureHttpContainer() {
-        container = ContainerFactory.createContainer(GrizzlyHttpContainer.class, getApplication());
+        container = ContainerFactory.createContainer(GrizzlyHttpContainer.class, getApplication().getConfig());
         ServerConfiguration serverConfiguration = httpServer.getServerConfiguration();
         serverConfiguration.addHttpHandler(container);
 
         String charset = StringUtils.defaultIfBlank((String) getApplication().getProperty("app.encoding"), "utf-8");
         serverConfiguration.setSendFileEnabled(true);
         if (!getApplication().isRegistered(AssetsFeature.class)) {
-            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(getApplication());
+            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(getApplication().getConfig());
             Set<String> mapKey = assetMap.keySet();
             for (String key : mapKey) {
                 CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(),
