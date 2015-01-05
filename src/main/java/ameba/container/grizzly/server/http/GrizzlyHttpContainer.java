@@ -52,9 +52,9 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
     private static final ExtendedLogger logger =
             new ExtendedLogger(Logger.getLogger(GrizzlyHttpContainer.class.getName()), Level.FINEST);
 
-    private final Type RequestTYPE = (new TypeLiteral<Ref<Request>>() {
+    private static final Type REQ_TYPE = (new TypeLiteral<Ref<Request>>() {
     }).getType();
-    private final Type ResponseTYPE = (new TypeLiteral<Ref<Response>>() {
+    private static final Type RES_TYPE = (new TypeLiteral<Ref<Response>>() {
     }).getType();
     /**
      * Cached value of configuration property
@@ -98,14 +98,12 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
         protected void configure() {
             bindFactory(GrizzlyRequestReferencingFactory.class).to(Request.class)
                     .proxy(false).in(RequestScoped.class);
-            bindFactory(ReferencingFactory.<Request>referenceFactory()).to(new TypeLiteral<Ref<Request>>() {
-            })
+            bindFactory(ReferencingFactory.<Request>referenceFactory()).to(REQ_TYPE)
                     .in(RequestScoped.class);
 
             bindFactory(GrizzlyResponseReferencingFactory.class).to(Response.class)
                     .proxy(true).proxyForSameScope(false).in(RequestScoped.class);
-            bindFactory(ReferencingFactory.<Response>referenceFactory()).to(new TypeLiteral<Ref<Response>>() {
-            })
+            bindFactory(ReferencingFactory.<Response>referenceFactory()).to(RES_TYPE)
                     .in(RequestScoped.class);
         }
     }
@@ -331,8 +329,8 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
 
                 @Override
                 public void initialize(final ServiceLocator locator) {
-                    locator.<Ref<Request>>getService(RequestTYPE).set(request);
-                    locator.<Ref<Response>>getService(ResponseTYPE).set(response);
+                    locator.<Ref<Request>>getService(RES_TYPE).set(request);
+                    locator.<Ref<Response>>getService(REQ_TYPE).set(response);
                 }
             });
             appHandler.handle(requestContext);
