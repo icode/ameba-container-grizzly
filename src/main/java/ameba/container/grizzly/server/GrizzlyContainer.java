@@ -139,7 +139,7 @@ public class GrizzlyContainer extends Container {
 
         config.setHttpServerName(getApplication().getApplicationName());
         String version = getApplication().getApplicationVersion().toString();
-        config.setHttpServerVersion(version.equals("Unknown") ? Ameba.getVersion() : version);
+        config.setHttpServerVersion(config.getHttpServerName().equals(Application.DEFAULT_APP_NAME) ? Ameba.getVersion() : version);
         config.setName("Ameba-HttpServer-" + getApplication().getApplicationName().toUpperCase());
 
     }
