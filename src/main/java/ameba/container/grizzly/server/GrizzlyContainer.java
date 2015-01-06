@@ -1,5 +1,6 @@
 package ameba.container.grizzly.server;
 
+import ameba.Ameba;
 import ameba.container.Container;
 import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
@@ -137,7 +138,8 @@ public class GrizzlyContainer extends Container {
         config.setPassTraceRequest(true);
 
         config.setHttpServerName(getApplication().getApplicationName());
-        config.setHttpServerVersion(getApplication().getApplicationVersion().toString());
+        String version = StringUtils.defaultString(getApplication().getApplicationVersion().toString(), Ameba.getVersion());
+        config.setHttpServerVersion(version);
         config.setName("Ameba-HttpServer-" + getApplication().getApplicationName().toUpperCase());
 
     }
