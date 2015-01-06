@@ -138,8 +138,8 @@ public class GrizzlyContainer extends Container {
         config.setPassTraceRequest(true);
 
         config.setHttpServerName(getApplication().getApplicationName());
-        String version = StringUtils.defaultString(getApplication().getApplicationVersion().toString(), Ameba.getVersion());
-        config.setHttpServerVersion(version);
+        String version = getApplication().getApplicationVersion().toString();
+        config.setHttpServerVersion(version.equals("Unknown") ? Ameba.getVersion() : version);
         config.setName("Ameba-HttpServer-" + getApplication().getApplicationName().toUpperCase());
 
     }
