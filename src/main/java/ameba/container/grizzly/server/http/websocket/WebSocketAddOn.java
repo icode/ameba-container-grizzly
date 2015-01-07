@@ -1,21 +1,21 @@
 package ameba.container.grizzly.server.http.websocket;
 
+import ameba.container.Container;
 import org.glassfish.grizzly.filterchain.FilterChainBuilder;
 import org.glassfish.grizzly.http.server.AddOn;
 import org.glassfish.grizzly.http.server.HttpServerFilter;
 import org.glassfish.grizzly.http.server.NetworkListener;
-import org.glassfish.tyrus.spi.ServerContainer;
 
 /**
  * @author icode
  */
 public class WebSocketAddOn implements AddOn {
 
-    private final ServerContainer serverContainer;
+    private final Container.WebSocketContainerProvider webSocketContainerProvider;
     private final String contextPath;
 
-    public WebSocketAddOn(ServerContainer serverContainer, String contextPath) {
-        this.serverContainer = serverContainer;
+    public WebSocketAddOn(Container.WebSocketContainerProvider webSocketContainerProvider, String contextPath) {
+        this.webSocketContainerProvider = webSocketContainerProvider;
         this.contextPath = contextPath;
     }
 
@@ -26,7 +26,7 @@ public class WebSocketAddOn implements AddOn {
 
         if (httpServerFilterIdx >= 0) {
             // Insert the WebSocketFilter right before HttpServerFilter
-            builder.add(httpServerFilterIdx, new GrizzlyServerFilter(serverContainer, contextPath));
+            builder.add(httpServerFilterIdx, new GrizzlyServerFilter(webSocketContainerProvider, contextPath));
         }
     }
 }

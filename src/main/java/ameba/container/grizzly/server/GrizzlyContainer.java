@@ -4,11 +4,13 @@ import ameba.Ameba;
 import ameba.container.Container;
 import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
+import ameba.container.grizzly.server.http.websocket.WebSocketServerContainer;
 import ameba.container.server.Connector;
 import ameba.core.Application;
 import ameba.exception.AmebaException;
 import ameba.mvc.assets.AssetsFeature;
 import ameba.util.ClassUtils;
+import ameba.websocket.WebSocketException;
 import ameba.websocket.WebSocketFeature;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.GrizzlyFuture;
@@ -37,15 +39,29 @@ public class GrizzlyContainer extends Container {
 
     public static final String WEB_SOCKET_CONTEXT_PATH = "websocket.contextPath";
 
+    /**
+     * Server-side property to set custom worker {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}.
+     * <p/>
+     * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
+     */
+    public static final String WORKER_THREAD_POOL_CONFIG = "container.server.workerThreadPoolConfig";
+
+    /**
+     * Server-side property to set custom selector {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}.
+     * <p/>
+     * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
+     */
+    public static final String SELECTOR_THREAD_POOL_CONFIG = "container.server.selectorThreadPoolConfig";
+
     private static final String TYPE_NAME = "Grizzly";
 
     private HttpServer httpServer;
 
     private GrizzlyHttpContainer container;
 
-    private WebSocketContainerProvider webSocketContainerProvider;
+    private WebSocketContainerProvider webSocketServerContainerProvider;
 
-    private ServerContainer serverContainer;
+    private WebSocketServerContainer webSocketServerContainer;
 
     private List<Connector> connectors;
 
@@ -59,6 +75,10 @@ public class GrizzlyContainer extends Container {
         return container.getApplicationHandler().getServiceLocator();
     }
 
+    private void buildWebSocketContainer(){
+        webSocketServerContainer = new WebSocketServerContainer(getApplication().getProperties());
+    }
+
     @Override
     protected void configureHttpServer() {
         final Map<String, Object> properties = getApplication().getProperties();
@@ -66,15 +86,18 @@ public class GrizzlyContainer extends Container {
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors, GrizzlyServerUtil.createCompressionConfig(properties));
 
         boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
-        final org.glassfish.tyrus.spi.ServerContainer webSocketContainer = webSocketEnabled ? GrizzlyServerUtil.bindWebSocket(properties, listeners) : null;
-        serverContainer = webSocketContainer;
+        final String contextPath = StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/");
+        if (webSocketEnabled) {
+            buildWebSocketContainer();
+            GrizzlyServerUtil.bindWebSocket(contextPath, getWebSocketContainerProvider(), listeners);
+        }
 
         httpServer = new HttpServer() {
             @Override
             public synchronized void start() throws IOException {
-                if (webSocketContainer != null)
+                if (webSocketServerContainer != null)
                     try {
-                        webSocketContainer.start(StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/"), -1);
+                        webSocketServerContainer.start(contextPath, -1);
                     } catch (DeploymentException e) {
                         logger.error("启动websocket容器失败", e);
                     }
@@ -83,15 +106,15 @@ public class GrizzlyContainer extends Container {
 
             @Override
             public synchronized GrizzlyFuture<HttpServer> shutdown(long gracePeriod, TimeUnit timeUnit) {
-                if (webSocketContainer != null)
-                    webSocketContainer.stop();
+                if (webSocketServerContainer != null)
+                    webSocketServerContainer.stop();
                 return super.shutdown(gracePeriod, timeUnit);
             }
 
             @Override
             public synchronized void shutdownNow() {
-                if (webSocketContainer != null)
-                    webSocketContainer.stop();
+                if (webSocketServerContainer != null)
+                    webSocketServerContainer.stop();
                 super.shutdownNow();
             }
         };
@@ -100,14 +123,14 @@ public class GrizzlyContainer extends Container {
 
         ThreadPoolConfig workerThreadPoolConfig = null;
 
-        String workerThreadPoolConfigClass = Utils.getProperty(properties, GrizzlyServerUtil.WORKER_THREAD_POOL_CONFIG, String.class);
+        String workerThreadPoolConfigClass = Utils.getProperty(properties, WORKER_THREAD_POOL_CONFIG, String.class);
         if (StringUtils.isNotBlank(workerThreadPoolConfigClass)) {
             workerThreadPoolConfig = ClassUtils.newInstance(workerThreadPoolConfigClass);
         }
 
         ThreadPoolConfig selectorThreadPoolConfig = null;
 
-        String selectorThreadPoolConfigClass = Utils.getProperty(properties, GrizzlyServerUtil.SELECTOR_THREAD_POOL_CONFIG, String.class);
+        String selectorThreadPoolConfigClass = Utils.getProperty(properties, SELECTOR_THREAD_POOL_CONFIG, String.class);
         if (StringUtils.isNotBlank(selectorThreadPoolConfigClass)) {
             selectorThreadPoolConfig = ClassUtils.newInstance(selectorThreadPoolConfigClass);
         }
@@ -174,12 +197,12 @@ public class GrizzlyContainer extends Container {
 
     @Override
     public ServerContainer getWebSocketContainer() {
-        return serverContainer;
+        return webSocketServerContainer;
     }
 
     @Override
     protected void configureWebSocketContainerProvider() {
-        webSocketContainerProvider = new WebSocketContainerProvider() {
+        webSocketServerContainerProvider = new WebSocketContainerProvider() {
             @Override
             public void dispose(ServerContainer serverContainer) {
                 if (serverContainer instanceof org.glassfish.tyrus.spi.ServerContainer)
@@ -190,12 +213,21 @@ public class GrizzlyContainer extends Container {
 
     @Override
     protected WebSocketContainerProvider getWebSocketContainerProvider() {
-        return webSocketContainerProvider;
+        return webSocketServerContainerProvider;
     }
 
     @Override
     protected void doReload(ResourceConfig resourceConfig) {
+        WebSocketServerContainer old = webSocketServerContainer;
+        buildWebSocketContainer();
         container.reload(resourceConfig);
+        try {
+            webSocketServerContainer.start(old.getContextPath(), old.getPort());
+        } catch (IOException e) {
+            throw new WebSocketException("reload web socket endpoint error", e);
+        } catch (DeploymentException e) {
+            throw new WebSocketException("reload web socket endpoint error", e);
+        }
     }
 
     @Override
