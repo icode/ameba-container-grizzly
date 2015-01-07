@@ -254,13 +254,13 @@ public class GrizzlyServerUtil {
         ClusterContext clusterContext = null;
         String clusterContextClass = Utils.getProperty(localProperties, WEBSOCKET_CLUSTER_CONTEXT, String.class);
         if (StringUtils.isNotBlank(clusterContextClass)) {
-            clusterContext = (ClusterContext) ClassUtils.newInstance(clusterContextClass);
+            clusterContext = ClassUtils.newInstance(clusterContextClass);
         }
 
         ApplicationEventListener applicationEventListener = null;
         String applicationEventListenerClass = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, String.class);
         if (StringUtils.isNotBlank(applicationEventListenerClass)) {
-            applicationEventListener = (ApplicationEventListener) ClassUtils.newInstance(applicationEventListenerClass);
+            applicationEventListener = ClassUtils.newInstance(applicationEventListenerClass);
         } else if (Utils.getProperty(localProperties, "app.jmx.enabled", Boolean.class)) {
             applicationEventListener = new SessionAwareApplicationMonitor();
         }

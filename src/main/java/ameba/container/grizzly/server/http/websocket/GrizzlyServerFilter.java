@@ -61,7 +61,9 @@ public class GrizzlyServerFilter extends BaseFilter {
     /**
      * Constructs a new {@link GrizzlyServerFilter}.
      *
-     * @param serverContainer
+     * @param serverContainer server container.
+     * @param contextPath     the context path of the deployed application. If the value is "" or "/", a request URI "/a"
+     *                        will be divided into context path "" and url-pattern "/a".
      */
     public GrizzlyServerFilter(ServerContainer serverContainer, String contextPath) {
         this.serverContainer = serverContainer;
@@ -100,7 +102,7 @@ public class GrizzlyServerFilter extends BaseFilter {
      *
      * @param ctx {@link FilterChainContext}
      * @return {@link NextAction} instruction for {@link FilterChain}, how it should continue the execution
-     * @throws IOException TODO
+     * @throws IOException
      */
     @Override
     @SuppressWarnings("unchecked")
