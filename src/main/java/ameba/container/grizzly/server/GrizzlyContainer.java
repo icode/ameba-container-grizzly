@@ -69,13 +69,19 @@ public class GrizzlyContainer extends Container {
         super(app);
     }
 
+    public static final ThreadLocal<Container> currentThreadContainer = new ThreadLocal<Container>();
 
     @Override
     public ServiceLocator getServiceLocator() {
         return container.getApplicationHandler().getServiceLocator();
     }
 
-    private void buildWebSocketContainer(){
+    @Override
+    protected void prepare() {
+        currentThreadContainer.set(this);
+    }
+
+    private void buildWebSocketContainer() {
         webSocketServerContainer = new WebSocketServerContainer(getApplication().getProperties());
     }
 

@@ -1,6 +1,7 @@
 package ameba.container.grizzly.server.http.websocket;
 
-import ameba.Ameba;
+import ameba.container.Container;
+import ameba.container.grizzly.server.GrizzlyContainer;
 import org.glassfish.tyrus.core.ComponentProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,12 @@ import java.lang.annotation.Annotation;
  */
 public class Hk2ComponentProvider extends ComponentProvider {
     private static final Logger logger = LoggerFactory.getLogger(Hk2ComponentProvider.class);
+
+    private Container container;
+
+    public Hk2ComponentProvider() {
+        container = GrizzlyContainer.currentThreadContainer.get();
+    }
 
     @Override
     public boolean isApplicable(Class<?> c) {
@@ -30,13 +37,13 @@ public class Hk2ComponentProvider extends ComponentProvider {
 
     @Override
     public <T> Object create(Class<T> c) {
-        return Ameba.getServiceLocator().createAndInitialize(c);
+        return container.getServiceLocator().createAndInitialize(c);
     }
 
     @Override
     public boolean destroy(Object o) {
         try {
-            Ameba.getServiceLocator().preDestroy(o);
+            container.getServiceLocator().preDestroy(o);
             return true;
         } catch (Exception e) {
             logger.debug(e.getMessage(), e);

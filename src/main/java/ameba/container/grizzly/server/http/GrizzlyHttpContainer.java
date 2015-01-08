@@ -305,35 +305,40 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
         containerListener.onStartup(this);
     }
 
+    public ContainerRequest createContainerRequest(final Request request, final Response response, ResponseWriter responseWriter) throws CharConversionException {
+        final URI baseUri = getBaseUri(request);
+        final ContainerRequest requestContext = new ameba.container.server.Request(baseUri,
+                getRequestUri(baseUri, request), request.getMethod().getMethodString(),
+                getSecurityContext(request), new GrizzlyRequestPropertiesDelegate(request)) {
+            @Override
+            public String getRemoteAddr() {
+                return request.getRemoteAddr();
+            }
+        };
+        requestContext.setEntityStream(request.getInputStream());
+        for (final String headerName : request.getHeaderNames()) {
+            requestContext.headers(headerName, request.getHeaders(headerName));
+        }
+        requestContext.setWriter(responseWriter);
+
+        requestContext.setRequestScopedInitializer(new RequestScopedInitializer() {
+
+            @Override
+            public void initialize(final ServiceLocator locator) {
+                locator.<Ref<Request>>getService(RES_TYPE).set(request);
+                locator.<Ref<Response>>getService(REQ_TYPE).set(response);
+            }
+        });
+        return requestContext;
+    }
+
     @Override
     public void service(final Request request, final Response response) throws CharConversionException {
         final ResponseWriter responseWriter = new ResponseWriter(response, configSetStatusOverSendError);
         try {
             logger.debugLog("GrizzlyHttpContainer.service(...) started");
-            final URI baseUri = getBaseUri(request);
-            final ContainerRequest requestContext = new ameba.container.server.Request(baseUri,
-                    getRequestUri(baseUri, request), request.getMethod().getMethodString(),
-                    getSecurityContext(request), new GrizzlyRequestPropertiesDelegate(request)) {
-                @Override
-                public String getRemoteAddr() {
-                    return request.getRemoteAddr();
-                }
-            };
-            requestContext.setEntityStream(request.getInputStream());
-            for (final String headerName : request.getHeaderNames()) {
-                requestContext.headers(headerName, request.getHeaders(headerName));
-            }
-            requestContext.setWriter(responseWriter);
 
-            requestContext.setRequestScopedInitializer(new RequestScopedInitializer() {
-
-                @Override
-                public void initialize(final ServiceLocator locator) {
-                    locator.<Ref<Request>>getService(RES_TYPE).set(request);
-                    locator.<Ref<Response>>getService(REQ_TYPE).set(response);
-                }
-            });
-            appHandler.handle(requestContext);
+            appHandler.handle(createContainerRequest(request, response, responseWriter));
         } finally {
             logger.debugLog("GrizzlyHttpContainer.service(...) finished");
         }
