@@ -1,24 +1,20 @@
 package ameba.container.grizzly.server.http.websocket;
 
-import ameba.container.Container;
-import ameba.container.grizzly.server.GrizzlyContainer;
+import ameba.Ameba;
+import com.google.common.collect.Sets;
 import org.glassfish.tyrus.core.ComponentProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.Annotation;
+import java.util.Set;
 
 /**
  * @author icode
  */
 public class Hk2ComponentProvider extends ComponentProvider {
     private static final Logger logger = LoggerFactory.getLogger(Hk2ComponentProvider.class);
-
-    private Container container;
-
-    public Hk2ComponentProvider() {
-        container = GrizzlyContainer.currentThreadContainer.get();
-    }
+    private static final Set<Class> noneManageClasses = Sets.newConcurrentHashSet();
 
     @Override
     public boolean isApplicable(Class<?> c) {
@@ -37,17 +33,26 @@ public class Hk2ComponentProvider extends ComponentProvider {
 
     @Override
     public <T> Object create(Class<T> c) {
-        return container.getServiceLocator().createAndInitialize(c);
+
+        T t = Ameba.getServiceLocator().getService(c);
+        if (t == null) {
+            t = Ameba.getServiceLocator().createAndInitialize(c);
+            noneManageClasses.add(c);
+        }
+        return t;
     }
 
     @Override
     public boolean destroy(Object o) {
-        try {
-            container.getServiceLocator().preDestroy(o);
-            return true;
-        } catch (Exception e) {
-            logger.debug(e.getMessage(), e);
-            return false;
+        if (o != null && noneManageClasses.contains(o.getClass())) {
+            try {
+                Ameba.getServiceLocator().preDestroy(o);
+                return true;
+            } catch (Exception e) {
+                logger.debug(e.getMessage(), e);
+                return false;
+            }
         }
+        return false;
     }
 }
