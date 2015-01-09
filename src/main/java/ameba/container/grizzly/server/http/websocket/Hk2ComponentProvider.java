@@ -14,7 +14,7 @@ import java.util.Set;
  */
 public class Hk2ComponentProvider extends ComponentProvider {
     private static final Logger logger = LoggerFactory.getLogger(Hk2ComponentProvider.class);
-    private static final Set<Class> noneManageClasses = Sets.newConcurrentHashSet();
+    private static final Set<Object> noneManageObject = Sets.newConcurrentHashSet();
 
     @Override
     public boolean isApplicable(Class<?> c) {
@@ -37,14 +37,14 @@ public class Hk2ComponentProvider extends ComponentProvider {
         T t = Ameba.getServiceLocator().getService(c);
         if (t == null) {
             t = Ameba.getServiceLocator().createAndInitialize(c);
-            noneManageClasses.add(c);
+            noneManageObject.add(t);
         }
         return t;
     }
 
     @Override
     public boolean destroy(Object o) {
-        if (o != null && noneManageClasses.contains(o.getClass())) {
+        if (o != null && noneManageObject.remove(o)) {
             try {
                 Ameba.getServiceLocator().preDestroy(o);
                 return true;
