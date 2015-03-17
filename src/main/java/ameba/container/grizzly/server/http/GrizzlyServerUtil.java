@@ -14,6 +14,7 @@ import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +24,10 @@ import java.util.Map;
 public class GrizzlyServerUtil {
     public static final Logger logger = LoggerFactory.getLogger(GrizzlyServerUtil.class);
     public static final String DEFAULT_NETWORK_LISTENER_NAME = "ameba";
+    public static final String COMPRESSION_MODE_KEY = "compression.mode";
+    public static final String COMPRESSION_MIN_SIZE_KEY = "compression.minSize";
+    public static final String COMPRESSION_MIME_TYPES_KEY = "compression.mimeTypes";
+    public static final String COMPRESSION_USER_AGENTS_KEY = "compression.userAgents";
 
 
     @SuppressWarnings("unchecked")
@@ -56,7 +61,7 @@ public class GrizzlyServerUtil {
             }
 
             CompressionConfig compressionConfig = listener.getCompressionConfig();
-            CompressionConfig compressionCfg = createCompressionConfig((Map) connector.getRawProperties());
+            CompressionConfig compressionCfg = createCompressionConfig(null, (Map) connector.getRawProperties());
 
             if (compressionCfg == null) {
                 compressionCfg = compression;
@@ -65,31 +70,44 @@ public class GrizzlyServerUtil {
             if (compressionCfg != null) {
                 compressionConfig.set(compressionCfg);
             }
+            listener.setMaxHttpHeaderSize(98304);
             listeners.add(listener);
         }
 
         return listeners;
     }
 
-    public static CompressionConfig createCompressionConfig(Map<String, Object> properties) {
+    public static CompressionConfig createCompressionConfig(String keyPrefix, Map<String, Object> properties) {
         CompressionConfig compressionConfig = null;
-        String modeStr = (String) properties.get("http.compression.mode");
+        if (keyPrefix == null)
+            keyPrefix = "";
+        else if (!keyPrefix.endsWith("."))
+            keyPrefix += ".";
+        String modeStr = (String) properties.get(keyPrefix + COMPRESSION_MODE_KEY);
         if (StringUtils.isNotBlank(modeStr) && ((modeStr = modeStr.toUpperCase()).equals("ON") || modeStr.equals("FORCE"))) {
 
-            String minSizeStr = (String) properties.get("http.compression.minSize");
-            String mimeTypesStr = (String) properties.get("http.compression.mimeTypes");
-            String userAgentsStr = (String) properties.get("http.compression.ignore.userAgents");
+            String minSizeKey = keyPrefix + COMPRESSION_MIN_SIZE_KEY;
+            String minSizeStr = (String) properties.get(minSizeKey);
+            String mimeTypesStr = (String) properties.get(keyPrefix + COMPRESSION_MIME_TYPES_KEY);
+            String userAgentsStr = (String) properties.get(keyPrefix + COMPRESSION_USER_AGENTS_KEY);
 
             compressionConfig = new CompressionConfig();
             compressionConfig.setCompressionMode(CompressionConfig.CompressionMode.fromString(modeStr)); // the mode
-            if (StringUtils.isNotBlank(minSizeStr))
+            int minSize = 4096;
+            if (StringUtils.isNotBlank(minSizeStr)) {
                 try {
-                    compressionConfig.setCompressionMinSize(Integer.parseInt(minSizeStr)); // the min amount of bytes to compress
+                    minSize = Integer.parseInt(minSizeStr); // the min amount of bytes to compress
                 } catch (Exception e) {
-                    logger.error("parse http.compression.minSize error", e);
+                    logger.error("parse " + minSizeKey + " error", e);
                 }
+            }
+            compressionConfig.setCompressionMinSize(minSize);
             if (StringUtils.isNotBlank(mimeTypesStr))
                 compressionConfig.setCompressableMimeTypes(mimeTypesStr.split(",")); // the mime types to compress
+            else
+                // Grizzly: "Empty set means *all* mime-types are allowed to be compressed."
+                compressionConfig.setCompressableMimeTypes(Collections.<String>emptySet());
+
             if (StringUtils.isNotBlank(userAgentsStr))
                 compressionConfig.setNoCompressionUserAgents(userAgentsStr.split(","));
         }

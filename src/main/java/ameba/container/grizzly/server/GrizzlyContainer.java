@@ -83,7 +83,7 @@ public class GrizzlyContainer extends Container {
     protected void configureHttpServer() {
         final Map<String, Object> properties = getApplication().getProperties();
         connectors = Connector.createDefaultConnectors(properties);
-        List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors, GrizzlyServerUtil.createCompressionConfig(properties));
+        List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors, GrizzlyServerUtil.createCompressionConfig("http", properties));
 
         boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
         final String contextPath = StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/");
