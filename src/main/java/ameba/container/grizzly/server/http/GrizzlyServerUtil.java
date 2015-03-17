@@ -104,9 +104,6 @@ public class GrizzlyServerUtil {
             compressionConfig.setCompressionMinSize(minSize);
             if (StringUtils.isNotBlank(mimeTypesStr))
                 compressionConfig.setCompressableMimeTypes(mimeTypesStr.split(",")); // the mime types to compress
-            else
-                // Grizzly: "Empty set means *all* mime-types are allowed to be compressed."
-                compressionConfig.setCompressableMimeTypes(Collections.<String>emptySet());
 
             if (StringUtils.isNotBlank(userAgentsStr))
                 compressionConfig.setNoCompressionUserAgents(userAgentsStr.split(","));
