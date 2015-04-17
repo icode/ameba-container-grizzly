@@ -18,8 +18,6 @@ import org.glassfish.grizzly.http.server.*;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.hk2.api.ServiceLocator;
-import org.glassfish.jersey.internal.util.collection.Ref;
-import org.glassfish.jersey.internal.util.collection.Refs;
 import org.glassfish.jersey.server.ContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.tyrus.core.Utils;
@@ -27,6 +25,7 @@ import org.glassfish.tyrus.core.Utils;
 import javax.websocket.DeploymentException;
 import javax.websocket.server.ServerContainer;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
@@ -180,19 +179,19 @@ public class GrizzlyContainer extends Container {
             Map<String, String[]> assetMap = AssetsFeature.getAssetMap(getApplication().getConfig());
             Set<String> mapKey = assetMap.keySet();
             for (String key : mapKey) {
-                final Ref<CLStaticHttpHandler> httpHandlerRef = Refs.emptyRef();
-                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(Application.class.getClassLoader(),
+                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(new ClassLoader() {
+                    @Override
+                    public URL getResource(String name) {
+                        ClassLoader classLoader = ClassUtils.getContextClassLoader();
+                        return classLoader.getResource(name);
+                    }
+                },
                         assetMap.get(key)) {
                     @Override
                     protected void onMissingResource(Request request, Response response) throws Exception {
-                        if (request.getRequestURI().equals("/")) {
-                            request.setRequestURI("/index.html");
-                            httpHandlerRef.get().service(request, response);
-                        }
                         container.service(request, response);
                     }
                 };
-                httpHandlerRef.set(httpHandler);
                 httpHandler.setRequestURIEncoding(charset);
                 httpHandler.setFileCacheEnabled(getApplication().getMode().isProd());
                 serverConfiguration.addHttpHandler(httpHandler, key.startsWith("/") ? key : "/" + key);
