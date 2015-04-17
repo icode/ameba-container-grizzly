@@ -175,31 +175,34 @@ public class GrizzlyContainer extends Container {
 
         String charset = StringUtils.defaultIfBlank((String) getApplication().getProperty("app.encoding"), "utf-8");
         serverConfiguration.setSendFileEnabled(true);
+        serverConfiguration.setDefaultQueryEncoding(Charset.forName(charset));
+
+        HttpHandler httpHandler = container;
+
         if (!getApplication().isRegistered(AssetsFeature.class)) {
             Map<String, String[]> assetMap = AssetsFeature.getAssetMap(getApplication().getConfig());
             Set<String> mapKey = assetMap.keySet();
+
             for (String key : mapKey) {
-                CLStaticHttpHandler httpHandler = new CLStaticHttpHandler(new ClassLoader() {
-                    @Override
-                    public URL getResource(String name) {
-                        ClassLoader classLoader = ClassUtils.getContextClassLoader();
-                        return classLoader.getResource(name);
-                    }
-                },
-                        assetMap.get(key)) {
+                String path = key.startsWith("/") ? key : "/" + key;
+                CLStaticHttpHandler handler = new CLStaticHttpHandler(
+                        new ClassLoaderResourceDelegate(), assetMap.get(key)) {
                     @Override
                     protected void onMissingResource(Request request, Response response) throws Exception {
                         container.service(request, response);
                     }
                 };
-                httpHandler.setRequestURIEncoding(charset);
-                httpHandler.setFileCacheEnabled(getApplication().getMode().isProd());
-                serverConfiguration.addHttpHandler(httpHandler, key.startsWith("/") ? key : "/" + key);
+                handler.setRequestURIEncoding(charset);
+                handler.setFileCacheEnabled(getApplication().getMode().isProd());
+                if (path.equals("/*")) {
+                    serverConfiguration.addHttpHandler(handler, path);
+                    httpHandler = new HttHandlerDelegate(container, handler);
+                } else {
+                    serverConfiguration.addHttpHandler(handler, path);
+                }
             }
         }
-
-        serverConfiguration.addHttpHandler(container);
-        serverConfiguration.setDefaultQueryEncoding(Charset.forName(charset));
+        serverConfiguration.addHttpHandler(httpHandler);
     }
 
     @Override
@@ -259,5 +262,85 @@ public class GrizzlyContainer extends Container {
     @Override
     public String getType() {
         return TYPE_NAME;
+    }
+
+    private class ClassLoaderResourceDelegate extends ClassLoader {
+        @Override
+        public URL getResource(String name) {
+            ClassLoader classLoader = ClassUtils.getContextClassLoader();
+            return classLoader.getResource(name);
+        }
+    }
+
+    private class HttHandlerDelegate extends HttpHandler {
+        private final GrizzlyHttpContainer container;
+        private final CLStaticHttpHandler clStaticHttpHandler;
+
+        public HttHandlerDelegate(GrizzlyHttpContainer container, CLStaticHttpHandler clStaticHttpHandler) {
+            super(container.getName());
+            this.container = container;
+            this.clStaticHttpHandler = clStaticHttpHandler;
+        }
+
+        @Override
+        public void start() {
+            container.start();
+        }
+
+        @Override
+        public void service(Request request, Response response) throws Exception {
+            clStaticHttpHandler.service(request, response);
+        }
+
+        @Override
+        public void destroy() {
+            container.destroy();
+        }
+
+        @Override
+        public String getName() {
+            return container.getName();
+        }
+
+        @Override
+        public boolean isAllowCustomStatusMessage() {
+            return container.isAllowCustomStatusMessage();
+        }
+
+        @Override
+        public void setAllowCustomStatusMessage(boolean allowCustomStatusMessage) {
+            container.setAllowCustomStatusMessage(allowCustomStatusMessage);
+        }
+
+        @Override
+        public boolean isAllowEncodedSlash() {
+            return container.isAllowEncodedSlash();
+        }
+
+        @Override
+        public void setAllowEncodedSlash(boolean allowEncodedSlash) {
+            container.setAllowEncodedSlash(allowEncodedSlash);
+        }
+
+        @Override
+        public Charset getRequestURIEncoding() {
+            return container.getRequestURIEncoding();
+        }
+
+        @Override
+        public void setRequestURIEncoding(Charset requestURIEncoding) {
+            container.setRequestURIEncoding(requestURIEncoding);
+        }
+
+        @Override
+        public void setRequestURIEncoding(String requestURIEncoding) {
+            container.setRequestURIEncoding(requestURIEncoding);
+        }
+
+        @Override
+        public RequestExecutorProvider getRequestExecutorProvider() {
+            return container.getRequestExecutorProvider();
+        }
+
     }
 }
