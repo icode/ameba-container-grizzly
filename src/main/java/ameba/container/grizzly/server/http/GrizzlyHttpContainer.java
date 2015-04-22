@@ -1,6 +1,7 @@
 package ameba.container.grizzly.server.http;
 
 import ameba.container.grizzly.server.http.internal.LocalizationMessages;
+import ameba.container.internal.ConfigHelper;
 import org.glassfish.grizzly.CompletionHandler;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.Request;
@@ -13,10 +14,8 @@ import org.glassfish.jersey.internal.util.ExtendedLogger;
 import org.glassfish.jersey.internal.util.collection.Ref;
 import org.glassfish.jersey.process.internal.RequestScoped;
 import org.glassfish.jersey.server.*;
-import org.glassfish.jersey.server.internal.ConfigHelper;
 import org.glassfish.jersey.server.internal.ContainerUtils;
 import org.glassfish.jersey.server.spi.Container;
-import org.glassfish.jersey.server.spi.ContainerLifecycleListener;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 import org.glassfish.jersey.server.spi.RequestScopedInitializer;
 
@@ -86,7 +85,7 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
      */
     private boolean configSetStatusOverSendError;
     private volatile ApplicationHandler appHandler;
-    private volatile ContainerLifecycleListener containerListener;
+    private volatile ConfigHelper.LifecycleListener containerListener;
 
     /**
      * Create a new Grizzly HTTP container.
@@ -166,8 +165,12 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
 
     @Override
     public void reload(final ResourceConfig configuration) {
-        this.containerListener.onShutdown(this);
-        this.appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
+        this.containerListener.onReloadShutdown(this, new Runnable() {
+            @Override
+            public void run() {
+                appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
+            }
+        });
         this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
         this.containerListener.onReload(this);
         this.containerListener.onStartup(this);
