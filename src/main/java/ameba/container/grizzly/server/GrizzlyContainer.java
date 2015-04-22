@@ -2,6 +2,7 @@ package ameba.container.grizzly.server;
 
 import ameba.Ameba;
 import ameba.container.Container;
+import ameba.container.ContainerException;
 import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
 import ameba.container.grizzly.server.http.websocket.WebSocketServerContainer;
@@ -30,7 +31,6 @@ import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -84,7 +84,8 @@ public class GrizzlyContainer extends Container {
     protected void configureHttpServer() {
         final Map<String, Object> properties = getApplication().getProperties();
         connectors = Connector.createDefaultConnectors(properties);
-        List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors, GrizzlyServerUtil.createCompressionConfig("http", properties));
+        List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors,
+                GrizzlyServerUtil.createCompressionConfig("http", properties));
 
         boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
         final String contextPath = StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/");
@@ -163,7 +164,8 @@ public class GrizzlyContainer extends Container {
 
         config.setHttpServerName(getApplication().getApplicationName());
         String version = getApplication().getApplicationVersion().toString();
-        config.setHttpServerVersion(config.getHttpServerName().equals(Application.DEFAULT_APP_NAME) ? Ameba.getVersion() : version);
+        config.setHttpServerVersion(
+                config.getHttpServerName().equals(Application.DEFAULT_APP_NAME) ? Ameba.getVersion() : version);
         config.setName("Ameba-HttpServer-" + getApplication().getApplicationName().toUpperCase());
 
     }
@@ -227,10 +229,10 @@ public class GrizzlyContainer extends Container {
     }
 
     @Override
-    protected void doReload(ResourceConfig resourceConfig) {
+    protected void doReload(ResourceConfig odlConfig) {
         WebSocketServerContainer old = webSocketServerContainer;
         buildWebSocketContainer();
-        container.reload(resourceConfig);
+        container.reload(getApplication().getConfig());
         try {
             webSocketServerContainer.start(old.getContextPath(), old.getPort());
         } catch (IOException e) {
@@ -250,7 +252,7 @@ public class GrizzlyContainer extends Container {
     }
 
     @Override
-    public void shutdown() throws ExecutionException, InterruptedException {
+    public void doShutdown() throws Exception {
         httpServer.shutdown().get();
     }
 
@@ -325,16 +327,19 @@ public class GrizzlyContainer extends Container {
         @Override
         public Charset getRequestURIEncoding() {
             return container.getRequestURIEncoding();
+
         }
 
         @Override
         public void setRequestURIEncoding(Charset requestURIEncoding) {
             container.setRequestURIEncoding(requestURIEncoding);
+
         }
 
         @Override
         public void setRequestURIEncoding(String requestURIEncoding) {
             container.setRequestURIEncoding(requestURIEncoding);
+
         }
 
         @Override

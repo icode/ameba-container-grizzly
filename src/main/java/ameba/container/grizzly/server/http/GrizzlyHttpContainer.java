@@ -56,6 +56,28 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
     }).getType();
     private static final Type RES_TYPE = (new TypeLiteral<Ref<Response>>() {
     }).getType();
+    private static final CompletionHandler<Response> EMPTY_COMPLETION_HANDLER = new CompletionHandler<Response>() {
+
+        @Override
+        public void cancelled() {
+            // no-op
+        }
+
+        @Override
+        public void failed(final Throwable throwable) {
+            // no-op
+        }
+
+        @Override
+        public void completed(final Response result) {
+            // no-op
+        }
+
+        @Override
+        public void updated(final Response result) {
+            // no-op
+        }
+    };
     /**
      * Cached value of configuration property
      * {@link org.glassfish.jersey.server.ServerProperties#RESPONSE_SET_STATUS_OVER_SEND_ERROR}.
@@ -63,6 +85,174 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
      * {@link org.glassfish.grizzly.http.server.Response#sendError}.
      */
     private boolean configSetStatusOverSendError;
+    private volatile ApplicationHandler appHandler;
+    private volatile ContainerLifecycleListener containerListener;
+
+    /**
+     * Create a new Grizzly HTTP container.
+     *
+     * @param application JAX-RS / Jersey application to be deployed on Grizzly HTTP container.
+     */
+    GrizzlyHttpContainer(final Application application) {
+        this.appHandler = new ApplicationHandler(application, new GrizzlyBinder());
+        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
+        cacheConfigSetStatusOverSendError();
+    }
+
+    /**
+     * Create a new Grizzly HTTP container.
+     *
+     * @param application   JAX-RS / Jersey application to be deployed on Grizzly HTTP container.
+     * @param parentLocator {@link org.glassfish.hk2.api.ServiceLocator} to becaome a parent of the locator used
+     *                      in {@link org.glassfish.jersey.server.ApplicationHandler}
+     */
+    GrizzlyHttpContainer(final Application application, final ServiceLocator parentLocator) {
+        this.appHandler = new ApplicationHandler(application, new GrizzlyBinder(), parentLocator);
+        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
+        cacheConfigSetStatusOverSendError();
+    }
+
+    @Override
+    public void start() {
+        super.start();
+        containerListener.onStartup(this);
+    }
+
+    @Override
+    public void service(final Request request, final Response response) throws CharConversionException {
+        final ResponseWriter responseWriter = new ResponseWriter(response, configSetStatusOverSendError);
+        try {
+            logger.debugLog("GrizzlyHttpContainer.service(...) started");
+
+            final URI baseUri = getBaseUri(request);
+            final ContainerRequest requestContext = new ameba.container.server.Request(baseUri,
+                    getRequestUri(baseUri, request), request.getMethod().getMethodString(),
+                    getSecurityContext(request), new GrizzlyRequestPropertiesDelegate(request)) {
+                @Override
+                public String getRemoteAddr() {
+                    return request.getRemoteAddr();
+                }
+            };
+            requestContext.setEntityStream(request.getInputStream());
+            for (final String headerName : request.getHeaderNames()) {
+                requestContext.headers(headerName, request.getHeaders(headerName));
+            }
+            requestContext.setWriter(responseWriter);
+
+            requestContext.setRequestScopedInitializer(new RequestScopedInitializer() {
+
+                @Override
+                public void initialize(final ServiceLocator locator) {
+                    locator.<Ref<Request>>getService(RES_TYPE).set(request);
+                    locator.<Ref<Response>>getService(REQ_TYPE).set(response);
+                }
+            });
+
+            appHandler.handle(requestContext);
+        } finally {
+            logger.debugLog("GrizzlyHttpContainer.service(...) finished");
+        }
+    }
+
+    @Override
+    public ResourceConfig getConfiguration() {
+        return appHandler.getConfiguration();
+    }
+
+    @Override
+    public void reload() {
+        reload(appHandler.getConfiguration());
+    }
+
+    @Override
+    public void reload(final ResourceConfig configuration) {
+        this.containerListener.onShutdown(this);
+        this.appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
+        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
+        this.containerListener.onReload(this);
+        this.containerListener.onStartup(this);
+        cacheConfigSetStatusOverSendError();
+    }
+
+    @Override
+    public ApplicationHandler getApplicationHandler() {
+        return appHandler;
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        containerListener.onShutdown(this);
+        appHandler = null;
+    }
+
+    private SecurityContext getSecurityContext(final Request request) {
+        return new SecurityContext() {
+
+            @Override
+            public boolean isUserInRole(final String role) {
+                return false;
+            }
+
+            @Override
+            public boolean isSecure() {
+                return request.isSecure();
+            }
+
+            @Override
+            public Principal getUserPrincipal() {
+                return request.getUserPrincipal();
+            }
+
+            @Override
+            public String getAuthenticationScheme() {
+                return request.getAuthType();
+            }
+        };
+    }
+
+    private URI getBaseUri(final Request request) {
+        try {
+            return new URI(request.getScheme(), null, request.getServerName(),
+                    request.getServerPort(), getBasePath(request), null, null);
+        } catch (final URISyntaxException ex) {
+            throw new IllegalArgumentException(ex);
+        }
+    }
+
+    private String getBasePath(final Request request) {
+        final String contextPath = request.getContextPath();
+
+        if (contextPath == null || contextPath.isEmpty()) {
+            return "/";
+        } else if (contextPath.charAt(contextPath.length() - 1) != '/') {
+            return contextPath + "/";
+        } else {
+            return contextPath;
+        }
+    }
+
+    private URI getRequestUri(final URI baseUri, final Request grizzlyRequest) throws CharConversionException {
+        String originalUri = UriBuilder.fromPath(
+                grizzlyRequest.getRequest().getRequestURIRef().getDecodedURI()
+        ).build().toString();
+
+        final String queryString = grizzlyRequest.getQueryString();
+        if (queryString != null) {
+            originalUri = originalUri + "?" + ContainerUtils.encodeUnsafeCharacters(queryString);
+        }
+
+        return baseUri.resolve(originalUri);
+    }
+
+    /**
+     * The method reads and caches value of configuration property
+     * {@link org.glassfish.jersey.server.ServerProperties#RESPONSE_SET_STATUS_OVER_SEND_ERROR} for future purposes.
+     */
+    private void cacheConfigSetStatusOverSendError() {
+        this.configSetStatusOverSendError = ServerProperties.getValue(getConfiguration().getProperties(),
+                ServerProperties.RESPONSE_SET_STATUS_OVER_SEND_ERROR, false, Boolean.class);
+    }
 
     /**
      * Referencing factory for Grizzly request.
@@ -107,29 +297,6 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
                     .in(RequestScoped.class);
         }
     }
-
-    private static final CompletionHandler<Response> EMPTY_COMPLETION_HANDLER = new CompletionHandler<Response>() {
-
-        @Override
-        public void cancelled() {
-            // no-op
-        }
-
-        @Override
-        public void failed(final Throwable throwable) {
-            // no-op
-        }
-
-        @Override
-        public void completed(final Response result) {
-            // no-op
-        }
-
-        @Override
-        public void updated(final Response result) {
-            // no-op
-        }
-    };
 
     private static final class ResponseWriter implements ContainerResponseWriter {
 
@@ -270,174 +437,5 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
                 throw new ContainerException(error);
             }
         }
-    }
-
-    private volatile ApplicationHandler appHandler;
-    private volatile ContainerLifecycleListener containerListener;
-
-    /**
-     * Create a new Grizzly HTTP container.
-     *
-     * @param application JAX-RS / Jersey application to be deployed on Grizzly HTTP container.
-     */
-    GrizzlyHttpContainer(final Application application) {
-        this.appHandler = new ApplicationHandler(application, new GrizzlyBinder());
-        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
-        cacheConfigSetStatusOverSendError();
-    }
-
-    /**
-     * Create a new Grizzly HTTP container.
-     *
-     * @param application   JAX-RS / Jersey application to be deployed on Grizzly HTTP container.
-     * @param parentLocator {@link org.glassfish.hk2.api.ServiceLocator} to becaome a parent of the locator used
-     *                      in {@link org.glassfish.jersey.server.ApplicationHandler}
-     */
-    GrizzlyHttpContainer(final Application application, final ServiceLocator parentLocator) {
-        this.appHandler = new ApplicationHandler(application, new GrizzlyBinder(), parentLocator);
-        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
-        cacheConfigSetStatusOverSendError();
-    }
-
-    @Override
-    public void start() {
-        super.start();
-        containerListener.onStartup(this);
-    }
-
-    @Override
-    public void service(final Request request, final Response response) throws CharConversionException {
-        final ResponseWriter responseWriter = new ResponseWriter(response, configSetStatusOverSendError);
-        try {
-            logger.debugLog("GrizzlyHttpContainer.service(...) started");
-
-            final URI baseUri = getBaseUri(request);
-            final ContainerRequest requestContext = new ameba.container.server.Request(baseUri,
-                    getRequestUri(baseUri, request), request.getMethod().getMethodString(),
-                    getSecurityContext(request), new GrizzlyRequestPropertiesDelegate(request)) {
-                @Override
-                public String getRemoteAddr() {
-                    return request.getRemoteAddr();
-                }
-            };
-            requestContext.setEntityStream(request.getInputStream());
-            for (final String headerName : request.getHeaderNames()) {
-                requestContext.headers(headerName, request.getHeaders(headerName));
-            }
-            requestContext.setWriter(responseWriter);
-
-            requestContext.setRequestScopedInitializer(new RequestScopedInitializer() {
-
-                @Override
-                public void initialize(final ServiceLocator locator) {
-                    locator.<Ref<Request>>getService(RES_TYPE).set(request);
-                    locator.<Ref<Response>>getService(REQ_TYPE).set(response);
-                }
-            });
-
-            appHandler.handle(requestContext);
-        } finally {
-            logger.debugLog("GrizzlyHttpContainer.service(...) finished");
-        }
-    }
-
-    @Override
-    public ResourceConfig getConfiguration() {
-        return appHandler.getConfiguration();
-    }
-
-    @Override
-    public void reload() {
-        reload(appHandler.getConfiguration());
-    }
-
-    @Override
-    public void reload(final ResourceConfig configuration) {
-        this.containerListener.onShutdown(this);
-        appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
-        this.containerListener = ConfigHelper.getContainerLifecycleListener(appHandler);
-        containerListener.onReload(this);
-        containerListener.onStartup(this);
-        cacheConfigSetStatusOverSendError();
-    }
-
-    @Override
-    public ApplicationHandler getApplicationHandler() {
-        return appHandler;
-    }
-
-    @Override
-    public void destroy() {
-        super.destroy();
-        containerListener.onShutdown(this);
-        appHandler = null;
-    }
-
-    private SecurityContext getSecurityContext(final Request request) {
-        return new SecurityContext() {
-
-            @Override
-            public boolean isUserInRole(final String role) {
-                return false;
-            }
-
-            @Override
-            public boolean isSecure() {
-                return request.isSecure();
-            }
-
-            @Override
-            public Principal getUserPrincipal() {
-                return request.getUserPrincipal();
-            }
-
-            @Override
-            public String getAuthenticationScheme() {
-                return request.getAuthType();
-            }
-        };
-    }
-
-    private URI getBaseUri(final Request request) {
-        try {
-            return new URI(request.getScheme(), null, request.getServerName(),
-                    request.getServerPort(), getBasePath(request), null, null);
-        } catch (final URISyntaxException ex) {
-            throw new IllegalArgumentException(ex);
-        }
-    }
-
-    private String getBasePath(final Request request) {
-        final String contextPath = request.getContextPath();
-
-        if (contextPath == null || contextPath.isEmpty()) {
-            return "/";
-        } else if (contextPath.charAt(contextPath.length() - 1) != '/') {
-            return contextPath + "/";
-        } else {
-            return contextPath;
-        }
-    }
-
-    private URI getRequestUri(final URI baseUri, final Request grizzlyRequest) throws CharConversionException {
-        String originalUri = UriBuilder.fromPath(
-                grizzlyRequest.getRequest().getRequestURIRef().getDecodedURI()
-        ).build().toString();
-
-        final String queryString = grizzlyRequest.getQueryString();
-        if (queryString != null) {
-            originalUri = originalUri + "?" + ContainerUtils.encodeUnsafeCharacters(queryString);
-        }
-
-        return baseUri.resolve(originalUri);
-    }
-
-    /**
-     * The method reads and caches value of configuration property
-     * {@link org.glassfish.jersey.server.ServerProperties#RESPONSE_SET_STATUS_OVER_SEND_ERROR} for future purposes.
-     */
-    private void cacheConfigSetStatusOverSendError() {
-        this.configSetStatusOverSendError = ServerProperties.getValue(getConfiguration().getProperties(),
-                ServerProperties.RESPONSE_SET_STATUS_OVER_SEND_ERROR, false, Boolean.class);
     }
 }
