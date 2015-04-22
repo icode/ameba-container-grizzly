@@ -2,7 +2,6 @@ package ameba.container.grizzly.server;
 
 import ameba.Ameba;
 import ameba.container.Container;
-import ameba.container.ContainerException;
 import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
 import ameba.container.grizzly.server.http.websocket.WebSocketServerContainer;
@@ -233,13 +232,14 @@ public class GrizzlyContainer extends Container {
         WebSocketServerContainer old = webSocketServerContainer;
         buildWebSocketContainer();
         container.reload(getApplication().getConfig());
-        try {
-            webSocketServerContainer.start(old.getContextPath(), old.getPort());
-        } catch (IOException e) {
-            throw new WebSocketException("reload web socket endpoint error", e);
-        } catch (DeploymentException e) {
-            throw new WebSocketException("reload web socket endpoint error", e);
-        }
+        if (webSocketServerContainer != null)
+            try {
+                webSocketServerContainer.start(old.getContextPath(), old.getPort());
+            } catch (IOException e) {
+                throw new WebSocketException("reload web socket endpoint error", e);
+            } catch (DeploymentException e) {
+                throw new WebSocketException("reload web socket endpoint error", e);
+            }
     }
 
     @Override
