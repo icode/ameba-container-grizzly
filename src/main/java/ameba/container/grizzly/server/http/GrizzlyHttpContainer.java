@@ -330,6 +330,9 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
                 if (grizzlyResponse.isSuspended()) {
                     grizzlyResponse.resume();
                 }
+                grizzlyResponse.flush();
+            } catch (IOException e) {
+                // no op
             } finally {
                 logger.debugLog("{0} - commit() called", name);
             }

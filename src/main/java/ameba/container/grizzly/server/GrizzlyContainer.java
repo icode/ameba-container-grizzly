@@ -64,6 +64,7 @@ public class GrizzlyContainer extends Container {
     private WebSocketServerContainer webSocketServerContainer;
 
     private List<Connector> connectors;
+    private boolean webSocketEnabled;
 
     public GrizzlyContainer(Application app) {
         super(app);
@@ -86,7 +87,7 @@ public class GrizzlyContainer extends Container {
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors,
                 GrizzlyServerUtil.createCompressionConfig("http", properties));
 
-        boolean webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
+        webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
         final String contextPath = StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/");
         if (webSocketEnabled) {
             buildWebSocketContainer();
@@ -165,7 +166,7 @@ public class GrizzlyContainer extends Container {
         String version = getApplication().getApplicationVersion().toString();
         config.setHttpServerVersion(
                 config.getHttpServerName().equals(Application.DEFAULT_APP_NAME) ? Ameba.getVersion() : version);
-        config.setName("Ameba-HttpServer-" + getApplication().getApplicationName().toUpperCase());
+        config.setName("Ameba-HttpServer-" + getApplication().getApplicationName());
 
     }
 
@@ -178,31 +179,8 @@ public class GrizzlyContainer extends Container {
         serverConfiguration.setSendFileEnabled(true);
         serverConfiguration.setDefaultQueryEncoding(Charset.forName(charset));
 
-        HttpHandler httpHandler = container;
-
-        if (!getApplication().isRegistered(AssetsFeature.class)) {
-            Map<String, String[]> assetMap = AssetsFeature.getAssetMap(getApplication().getConfig());
-            Set<String> mapKey = assetMap.keySet();
-
-            for (String key : mapKey) {
-                String path = key.startsWith("/") ? key : "/" + key;
-                CLStaticHttpHandler handler = new CLStaticHttpHandler(
-                        new ClassLoaderResourceDelegate(), assetMap.get(key)) {
-                    @Override
-                    protected void onMissingResource(Request request, Response response) throws Exception {
-                        container.service(request, response);
-                    }
-                };
-                handler.setRequestURIEncoding(charset);
-                handler.setFileCacheEnabled(getApplication().getMode().isProd());
-                if (path.equals("/*")) {
-                    serverConfiguration.addHttpHandler(handler, path);
-                    httpHandler = new HttHandlerDelegate(container, handler);
-                } else {
-                    serverConfiguration.addHttpHandler(handler, path);
-                }
-            }
-        }
+        GrizzlyHttpContainer httpHandler = container;
+        httpHandler.setRequestURIEncoding(charset);
         serverConfiguration.addHttpHandler(httpHandler);
     }
 
@@ -229,10 +207,13 @@ public class GrizzlyContainer extends Container {
 
     @Override
     protected void doReload(ResourceConfig odlConfig) {
-        WebSocketServerContainer old = webSocketServerContainer;
-        buildWebSocketContainer();
+        WebSocketServerContainer old = null;
+        if (webSocketEnabled) {
+            old = webSocketServerContainer;
+            buildWebSocketContainer();
+        }
         container.reload(getApplication().getConfig());
-        if (webSocketServerContainer != null)
+        if (webSocketServerContainer != null && old != null)
             try {
                 webSocketServerContainer.start(old.getContextPath(), old.getPort());
             } catch (IOException e) {
@@ -264,88 +245,5 @@ public class GrizzlyContainer extends Container {
     @Override
     public String getType() {
         return TYPE_NAME;
-    }
-
-    private class ClassLoaderResourceDelegate extends ClassLoader {
-        @Override
-        public URL getResource(String name) {
-            ClassLoader classLoader = ClassUtils.getContextClassLoader();
-            return classLoader.getResource(name);
-        }
-    }
-
-    private class HttHandlerDelegate extends HttpHandler {
-        private final GrizzlyHttpContainer container;
-        private final CLStaticHttpHandler clStaticHttpHandler;
-
-        public HttHandlerDelegate(GrizzlyHttpContainer container, CLStaticHttpHandler clStaticHttpHandler) {
-            super(container.getName());
-            this.container = container;
-            this.clStaticHttpHandler = clStaticHttpHandler;
-        }
-
-        @Override
-        public void start() {
-            container.start();
-        }
-
-        @Override
-        public void service(Request request, Response response) throws Exception {
-            clStaticHttpHandler.service(request, response);
-        }
-
-        @Override
-        public void destroy() {
-            container.destroy();
-        }
-
-        @Override
-        public String getName() {
-            return container.getName();
-        }
-
-        @Override
-        public boolean isAllowCustomStatusMessage() {
-            return container.isAllowCustomStatusMessage();
-        }
-
-        @Override
-        public void setAllowCustomStatusMessage(boolean allowCustomStatusMessage) {
-            container.setAllowCustomStatusMessage(allowCustomStatusMessage);
-        }
-
-        @Override
-        public boolean isAllowEncodedSlash() {
-            return container.isAllowEncodedSlash();
-        }
-
-        @Override
-        public void setAllowEncodedSlash(boolean allowEncodedSlash) {
-            container.setAllowEncodedSlash(allowEncodedSlash);
-        }
-
-        @Override
-        public Charset getRequestURIEncoding() {
-            return container.getRequestURIEncoding();
-
-        }
-
-        @Override
-        public void setRequestURIEncoding(Charset requestURIEncoding) {
-            container.setRequestURIEncoding(requestURIEncoding);
-
-        }
-
-        @Override
-        public void setRequestURIEncoding(String requestURIEncoding) {
-            container.setRequestURIEncoding(requestURIEncoding);
-
-        }
-
-        @Override
-        public RequestExecutorProvider getRequestExecutorProvider() {
-            return container.getRequestExecutorProvider();
-        }
-
     }
 }

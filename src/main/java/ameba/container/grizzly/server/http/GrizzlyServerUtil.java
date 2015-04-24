@@ -93,15 +93,14 @@ public class GrizzlyServerUtil {
 
             compressionConfig = new CompressionConfig();
             compressionConfig.setCompressionMode(CompressionConfig.CompressionMode.fromString(modeStr)); // the mode
-            int minSize = 4096;
             if (StringUtils.isNotBlank(minSizeStr)) {
                 try {
-                    minSize = Integer.parseInt(minSizeStr); // the min amount of bytes to compress
+                    int minSize = Integer.parseInt(minSizeStr); // the min amount of bytes to compress
+                    compressionConfig.setCompressionMinSize(minSize);
                 } catch (Exception e) {
                     logger.error("parse " + minSizeKey + " error", e);
                 }
             }
-            compressionConfig.setCompressionMinSize(minSize);
             if (StringUtils.isNotBlank(mimeTypesStr))
                 compressionConfig.setCompressableMimeTypes(mimeTypesStr.split(",")); // the mime types to compress
 
