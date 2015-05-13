@@ -14,7 +14,6 @@ import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -35,7 +34,7 @@ public class GrizzlyServerUtil {
         List<NetworkListener> listeners = Lists.newArrayList();
 
         for (Connector connector : connectors) {
-            final String host = (connector.getHost() == null) ? NetworkListener.DEFAULT_NETWORK_HOST
+            final String host = (connector.getHost() == null) ? Connector.DEFAULT_NETWORK_HOST
                     : connector.getHost();
             final int port = (connector.getPort() == -1) ? 80 : connector.getPort();
             final NetworkListener listener = new NetworkListener(

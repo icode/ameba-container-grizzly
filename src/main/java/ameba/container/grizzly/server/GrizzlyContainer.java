@@ -216,9 +216,7 @@ public class GrizzlyContainer extends Container {
         if (webSocketServerContainer != null && old != null)
             try {
                 webSocketServerContainer.start(old.getContextPath(), old.getPort());
-            } catch (IOException e) {
-                throw new WebSocketException("reload web socket endpoint error", e);
-            } catch (DeploymentException e) {
+            } catch (IOException | DeploymentException e) {
                 throw new WebSocketException("reload web socket endpoint error", e);
             }
     }

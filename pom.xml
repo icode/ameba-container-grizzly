@@ -187,7 +187,7 @@
     </dependencies>
 
     <properties>
-        <ameba.version>0.1.6e</ameba.version>
+        <ameba.version>${version}</ameba.version>
         <tyrus.version>1.10</tyrus.version>
         <grizzly.version>2.3.20</grizzly.version>
     </properties>
