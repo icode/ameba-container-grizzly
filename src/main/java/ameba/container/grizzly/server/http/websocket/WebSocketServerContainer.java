@@ -152,7 +152,7 @@ public class WebSocketServerContainer extends TyrusServerContainer {
         String applicationEventListenerClass = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, String.class);
         if (StringUtils.isNotBlank(applicationEventListenerClass)) {
             applicationEventListener = ClassUtils.newInstance(applicationEventListenerClass);
-        } else if (Utils.getProperty(localProperties, "app.jmx.enabled", Boolean.class)) {
+        } else if (Utils.getProperty(localProperties, "jmx.enabled", Boolean.class)) {
             applicationEventListener = new SessionAwareApplicationMonitor();
         }
 
