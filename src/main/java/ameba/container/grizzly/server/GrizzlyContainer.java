@@ -8,13 +8,16 @@ import ameba.container.grizzly.server.http.websocket.WebSocketServerContainer;
 import ameba.container.server.Connector;
 import ameba.core.Application;
 import ameba.exception.AmebaException;
-import ameba.mvc.assets.AssetsFeature;
+import ameba.i18n.Messages;
 import ameba.util.ClassUtils;
 import ameba.websocket.WebSocketException;
 import ameba.websocket.WebSocketFeature;
+import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.GrizzlyFuture;
-import org.glassfish.grizzly.http.server.*;
+import org.glassfish.grizzly.http.server.HttpServer;
+import org.glassfish.grizzly.http.server.NetworkListener;
+import org.glassfish.grizzly.http.server.ServerConfiguration;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.hk2.api.ServiceLocator;
@@ -25,11 +28,9 @@ import org.glassfish.tyrus.core.Utils;
 import javax.websocket.DeploymentException;
 import javax.websocket.server.ServerContainer;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -84,6 +85,10 @@ public class GrizzlyContainer extends Container {
     protected void configureHttpServer() {
         final Map<String, Object> properties = getApplication().getProperties();
         connectors = Connector.createDefaultConnectors(properties);
+        if (connectors.size() == 0) {
+            logger.warn(Messages.get("info.connector.none"));
+            connectors.add(Connector.createDefault(Maps.<String, String>newHashMap()));
+        }
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors,
                 GrizzlyServerUtil.createCompressionConfig("http", properties));
 
