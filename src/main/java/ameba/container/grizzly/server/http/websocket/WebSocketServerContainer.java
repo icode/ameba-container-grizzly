@@ -111,11 +111,6 @@ public class WebSocketServerContainer extends TyrusServerContainer {
      *     </context-param>}</pre>
      */
     public static final String WEBSOCKET_APPLICATION_EVENT_LISTENER = "websocket.monitoring.ApplicationEventListener";
-
-    private WebSocketServerContainer(Set<Class<?>> classes) {
-        super(classes);
-    }
-
     private Integer incomingBufferSize;
     private Integer maxSessionsPerApp;
     private Integer maxSessionsPerRemoteAddr;
@@ -126,6 +121,11 @@ public class WebSocketServerContainer extends TyrusServerContainer {
     private ApplicationEventListener applicationEventListener;
     private WebSocketEngine engine;
     private int port;
+    private String contextPath;
+
+    private WebSocketServerContainer(Set<Class<?>> classes) {
+        super(classes);
+    }
 
     public WebSocketServerContainer(Map<String, Object> properties) {
         super((Set<Class<?>>) null);
@@ -134,7 +134,7 @@ public class WebSocketServerContainer extends TyrusServerContainer {
         if (properties == null) {
             localProperties = Collections.emptyMap();
         } else {
-            localProperties = new HashMap<String, Object>(properties);
+            localProperties = new HashMap<>(properties);
         }
 
         incomingBufferSize = Utils.getProperty(localProperties, WEBSOCKET_INCOMING_BUFFER_SIZE, Integer.class);
@@ -152,7 +152,7 @@ public class WebSocketServerContainer extends TyrusServerContainer {
         String applicationEventListenerClass = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, String.class);
         if (StringUtils.isNotBlank(applicationEventListenerClass)) {
             applicationEventListener = ClassUtils.newInstance(applicationEventListenerClass);
-        } else if (Utils.getProperty(localProperties, "jmx.enabled", Boolean.class)) {
+        } else if ("true".equals(localProperties.get("jmx.enabled"))) {
             applicationEventListener = new SessionAwareApplicationMonitor();
         }
 
@@ -173,8 +173,6 @@ public class WebSocketServerContainer extends TyrusServerContainer {
                 .tracingThreshold(tracingThreshold)
                 .build();
     }
-
-    private String contextPath;
 
     @Override
     public void register(Class<?> endpointClass) throws DeploymentException {
