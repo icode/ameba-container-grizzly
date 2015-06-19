@@ -51,11 +51,9 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private static final Attribute<TaskProcessor> TASK_PROCESSOR = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
             .createAttribute(TaskProcessor.class.getName() + ".TaskProcessor");
-
+    public final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
     private final Container.WebSocketContainerProvider webSocketContainerProvider;
     private final String contextPath;
-
-    public final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
 
     // ------------------------------------------------------------ Constructors
 
@@ -63,8 +61,8 @@ public class GrizzlyServerFilter extends BaseFilter {
      * Constructs a new {@link GrizzlyServerFilter}.
      *
      * @param webSocketContainerProvider server container provider.
-     * @param contextPath     the context path of the deployed application. If the value is "" or "/", a request URI "/a"
-     *                        will be divided into context path "" and url-pattern "/a".
+     * @param contextPath                the context path of the deployed application. If the value is "" or "/", a request URI "/a"
+     *                                   will be divided into context path "" and url-pattern "/a".
      */
     public GrizzlyServerFilter(Container.WebSocketContainerProvider webSocketContainerProvider, String contextPath) {
         this.webSocketContainerProvider = webSocketContainerProvider;
@@ -72,6 +70,44 @@ public class GrizzlyServerFilter extends BaseFilter {
     }
 
     // ----------------------------------------------------- Methods from Filter
+
+    private static UpgradeRequest createWebSocketRequest(final HttpContent content) {
+
+        final HttpRequestPacket requestPacket = (HttpRequestPacket) content.getHttpHeader();
+
+        Parameters parameters = new Parameters();
+
+        parameters.setQuery(requestPacket.getQueryStringDC());
+        parameters.setQueryStringEncoding(Charsets.UTF8_CHARSET);
+
+        Map<String, String[]> parameterMap = Maps.newHashMap();
+
+        for (String paramName : parameters.getParameterNames()) {
+            parameterMap.put(paramName, parameters.getParameterValues(paramName));
+        }
+
+        final RequestContext requestContext = RequestContext.Builder.create()
+                .requestURI(URI.create(requestPacket.getRequestURI()))
+                .queryString(requestPacket.getQueryString())
+                .parameterMap(parameterMap)
+                .secure(requestPacket.isSecure())
+                .remoteAddr(requestPacket.getRemoteAddress())
+                .build();
+
+        for (String name : requestPacket.getHeaders().names()) {
+            for (String headerValue : requestPacket.getHeaders().values(name)) {
+
+                final List<String> values = requestContext.getHeaders().get(name);
+                if (values == null) {
+                    requestContext.getHeaders().put(name, Utils.parseHeaderValue(headerValue.trim()));
+                } else {
+                    values.addAll(Utils.parseHeaderValue(headerValue.trim()));
+                }
+            }
+        }
+
+        return requestContext;
+    }
 
     /**
      * Method handles Grizzly {@link Connection} close phase. Check if the {@link Connection} is a {@link org.glassfish.tyrus.core.TyrusWebSocket}, if
@@ -195,20 +231,22 @@ public class GrizzlyServerFilter extends BaseFilter {
         final UpgradeRequest upgradeRequest = createWebSocketRequest(content);
         // TODO: final UpgradeResponse upgradeResponse = GrizzlyUpgradeResponse(HttpResponsePacket)
         final UpgradeResponse upgradeResponse = new TyrusUpgradeResponse();
-        final WebSocketEngine.UpgradeInfo upgradeInfo = ((ServerContainer)webSocketContainerProvider.provide())
-                        .getWebSocketEngine().upgrade(upgradeRequest, upgradeResponse);
+        final WebSocketEngine.UpgradeInfo upgradeInfo = ((ServerContainer) webSocketContainerProvider.provide())
+                .getWebSocketEngine().upgrade(upgradeRequest, upgradeResponse);
 
         switch (upgradeInfo.getStatus()) {
             case SUCCESS:
                 final org.glassfish.grizzly.Connection grizzlyConnection = ctx.getConnection();
                 write(ctx, upgradeResponse);
 
-                final org.glassfish.tyrus.spi.Connection connection = upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()), new org.glassfish.tyrus.spi.Connection.CloseListener() {
-                    @Override
-                    public void close(CloseReason reason) {
-                        grizzlyConnection.close();
-                    }
-                });
+                final org.glassfish.tyrus.spi.Connection connection =
+                        upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()),
+                                new org.glassfish.tyrus.spi.Connection.CloseListener() {
+                            @Override
+                            public void close(CloseReason reason) {
+                                grizzlyConnection.close();
+                            }
+                        });
 
                 TYRUS_CONNECTION.set(grizzlyConnection, connection);
                 TASK_PROCESSOR.set(grizzlyConnection, new TaskProcessor());
@@ -250,7 +288,8 @@ public class GrizzlyServerFilter extends BaseFilter {
     }
 
     private void write(FilterChainContext ctx, UpgradeResponse response) {
-        final HttpResponsePacket responsePacket = ((HttpRequestPacket) ((HttpContent) ctx.getMessage()).getHttpHeader()).getResponse();
+        final HttpResponsePacket responsePacket =
+                ((HttpRequestPacket) ((HttpContent) ctx.getMessage()).getHttpHeader()).getResponse();
         responsePacket.setProtocol(Protocol.HTTP_1_1);
         responsePacket.setStatus(response.getStatus());
 
@@ -265,51 +304,14 @@ public class GrizzlyServerFilter extends BaseFilter {
     }
 
     private void writeTraceHeaders(FilterChainContext ctx, UpgradeResponse upgradeResponse) {
-        final HttpResponsePacket responsePacket = ((HttpRequestPacket) ((HttpContent) ctx.getMessage()).getHttpHeader()).getResponse();
+        final HttpResponsePacket responsePacket =
+                ((HttpRequestPacket) ((HttpContent) ctx.getMessage()).getHttpHeader()).getResponse();
 
         for (Map.Entry<String, List<String>> entry : upgradeResponse.getHeaders().entrySet()) {
             if (entry.getKey().contains(UpgradeResponse.TRACING_HEADER_PREFIX)) {
                 responsePacket.setHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
             }
         }
-    }
-
-    private static UpgradeRequest createWebSocketRequest(final HttpContent content) {
-
-        final HttpRequestPacket requestPacket = (HttpRequestPacket) content.getHttpHeader();
-
-        Parameters parameters = new Parameters();
-
-        parameters.setQuery(requestPacket.getQueryStringDC());
-        parameters.setQueryStringEncoding(Charsets.UTF8_CHARSET);
-
-        Map<String, String[]> parameterMap = Maps.newHashMap();
-
-        for (String paramName : parameters.getParameterNames()) {
-            parameterMap.put(paramName, parameters.getParameterValues(paramName));
-        }
-
-        final RequestContext requestContext = RequestContext.Builder.create()
-                .requestURI(URI.create(requestPacket.getRequestURI()))
-                .queryString(requestPacket.getQueryString())
-                .parameterMap(parameterMap)
-                .secure(requestPacket.isSecure())
-                .remoteAddr(requestPacket.getRemoteAddress())
-                .build();
-
-        for (String name : requestPacket.getHeaders().names()) {
-            for (String headerValue : requestPacket.getHeaders().values(name)) {
-
-                final List<String> values = requestContext.getHeaders().get(name);
-                if (values == null) {
-                    requestContext.getHeaders().put(name, Utils.parseHeaderValue(headerValue.trim()));
-                } else {
-                    values.addAll(Utils.parseHeaderValue(headerValue.trim()));
-                }
-            }
-        }
-
-        return requestContext;
     }
 
     private class ProcessTask extends TaskProcessor.Task {
