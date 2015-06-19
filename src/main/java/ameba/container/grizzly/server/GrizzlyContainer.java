@@ -18,6 +18,7 @@ import org.glassfish.grizzly.GrizzlyFuture;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.http.server.ServerConfiguration;
+import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.hk2.api.ServiceLocator;
@@ -46,6 +47,8 @@ public class GrizzlyContainer extends Container {
      * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
      */
     public static final String WORKER_THREAD_POOL_CONFIG = "container.server.workerThreadPoolConfig";
+    public static final String WORKER_THREAD_POOL_CORE_SIZE = "container.server.worker.coreSize";
+    public static final String WORKER_THREAD_POOL_MAX_SIZE = "container.server.worker.maxSize";
 
     /**
      * Server-side property to set custom selector {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}.
@@ -53,6 +56,7 @@ public class GrizzlyContainer extends Container {
      * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
      */
     public static final String SELECTOR_THREAD_POOL_CONFIG = "container.server.selectorThreadPoolConfig";
+    public static final String SELECTOR_THREAD_POOL_SIZE = "container.server.selector.size";
 
     private static final String TYPE_NAME = "Grizzly";
 
@@ -155,10 +159,35 @@ public class GrizzlyContainer extends Container {
             }
         }
 
+        Integer selectorSize = Utils.getProperty(properties, SELECTOR_THREAD_POOL_SIZE, Integer.class);
+        Integer workerCoreSize = Utils.getProperty(properties, WORKER_THREAD_POOL_CORE_SIZE, Integer.class);
+        Integer workerMaxSize = Utils.getProperty(properties, WORKER_THREAD_POOL_MAX_SIZE, Integer.class);
+
         for (NetworkListener listener : listeners) {
 
             if (transportBuilder != null) {
                 listener.setTransport(transportBuilder.build());
+            }
+
+            if (workerThreadPoolConfig == null) {
+                TCPNIOTransport transport = listener.getTransport();
+                workerThreadPoolConfig = transport.getWorkerThreadPoolConfig();
+                boolean change = false;
+                if (workerCoreSize != null && workerCoreSize > 0) {
+                    workerThreadPoolConfig.setCorePoolSize(workerCoreSize);
+                    change = true;
+                }
+                if (workerMaxSize != null && workerMaxSize > 0) {
+                    workerThreadPoolConfig.setMaxPoolSize(workerMaxSize);
+                    change = true;
+                }
+                if (change) {
+                    transport.setWorkerThreadPoolConfig(workerThreadPoolConfig);
+                }
+            }
+
+            if (selectorThreadPoolConfig == null && selectorSize != null && selectorSize > 0) {
+                listener.getTransport().setSelectorRunnersCount(selectorSize);
             }
 
             httpServer.addListener(listener);
