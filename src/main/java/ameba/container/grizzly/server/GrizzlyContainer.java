@@ -10,8 +10,8 @@ import ameba.core.Application;
 import ameba.exception.AmebaException;
 import ameba.i18n.Messages;
 import ameba.util.ClassUtils;
+import ameba.websocket.WebSocketAddon;
 import ameba.websocket.WebSocketException;
-import ameba.websocket.WebSocketFeature;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.GrizzlyFuture;
@@ -96,7 +96,7 @@ public class GrizzlyContainer extends Container {
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors,
                 GrizzlyServerUtil.createCompressionConfig("http", properties));
 
-        webSocketEnabled = !"false".equals(properties.get(WebSocketFeature.WEB_SOCKET_ENABLED_CONF));
+        webSocketEnabled = !"false".equals(properties.get(WebSocketAddon.WEB_SOCKET_ENABLED_CONF));
         final String contextPath = StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/");
         if (webSocketEnabled) {
             buildWebSocketContainer();
