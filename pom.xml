@@ -188,7 +188,7 @@
 
     <properties>
         <ameba.version>0.1.7-SNAPSHOT</ameba.version>
-        <tyrus.version>1.11</tyrus.version>
+        <tyrus.version>1.12</tyrus.version>
         <grizzly.version>2.3.23</grizzly.version>
     </properties>
     <build>
