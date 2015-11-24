@@ -27,9 +27,9 @@ public class WebSocketServerContainer extends TyrusServerContainer {
 
     /**
      * Maximum size of incoming buffer in bytes.
-     * <p/>
+     * <br>
      * The value must be {@link java.lang.Integer} or its primitive alternative.
-     * <p/>
+     * <br>
      * Default value is 4194315, which means that TyrusWebSocketEngine is by default
      * capable of processing messages up to 4 MB.
      */
@@ -37,60 +37,60 @@ public class WebSocketServerContainer extends TyrusServerContainer {
 
     /**
      * Maximum number of open sessions per server application.
-     * <p/>
+     * <br>
      * The value must be positive {@link java.lang.Integer} or its primitive alternative. Negative values
      * and zero are ignored.
-     * <p/>
+     * <br>
      * The number of open sessions per application is not limited by default.
      */
     public static final String WEBSOCKET_MAX_SESSIONS_PER_APP = "websocket.maxSessionsPerApp";
 
     /**
      * Maximum number of open sessions per unique remote address.
-     * <p/>
+     * <br>
      * The value must be positive {@link java.lang.Integer} or its primitive alternative. Negative values
      * and zero are ignored.
-     * <p/>
+     * <br>
      * The number of open sessions per remote address is not limited by default.
      */
     public static final String WEBSOCKET_MAX_SESSIONS_PER_REMOTE_ADDR = "websocket.maxSessionsPerRemoteAddr";
 
     /**
      * Property used for configuring the type of tracing supported by the server.
-     * <p/>
+     * <br>
      * The value is expected to be string value of {@link org.glassfish.tyrus.core.DebugContext.TracingType}.
-     * <p/>
+     * <br>
      * The default value is {@link org.glassfish.tyrus.core.DebugContext.TracingType#OFF}.
      */
     public static final String WEBSOCKET_TRACING_TYPE = "websocket.tracingType";
 
     /**
      * Property used for configuring tracing threshold.
-     * <p/>
+     * <br>
      * The value is expected to be string value of {@link org.glassfish.tyrus.core.DebugContext.TracingThreshold}.
-     * <p/>
+     * <br>
      * The default value is {@link org.glassfish.tyrus.core.DebugContext.TracingThreshold#SUMMARY}.
      */
     public static final String WEBSOCKET_TRACING_THRESHOLD = "websocket.tracingThreshold";
 
     /**
      * Parallel broadcast support.
-     * <p/>
+     * <br>
      * {@link org.glassfish.tyrus.core.TyrusSession#broadcast(String)} and {@link org.glassfish.tyrus.core.TyrusSession#broadcast(java.nio.ByteBuffer)}
      * operations are by default executed in parallel. The parallel execution of broadcast can be disabled by setting
      * this server property to {@code false}.
-     * <p/>
+     * <br>
      * Expected value is {@code true} or {@code false} and the default value is {@code true}.
      *
-     * @see org.glassfish.tyrus.core.TyrusSession#broadcast(String).
-     * @see org.glassfish.tyrus.core.TyrusSession#broadcast(java.nio.ByteBuffer).
+     * @see org.glassfish.tyrus.core.TyrusSession#broadcast(String) .
+     * @see org.glassfish.tyrus.core.TyrusSession#broadcast(java.nio.ByteBuffer) .
      */
     public static final String WEBSOCKET_PARALLEL_BROADCAST_ENABLED = "websocket.parallelBroadcastEnabled";
 
 
     /**
      * ClusterContext registration property.
-     * <p/>
+     * <br>
      * ClusterContext is registered to the Server container via properties passed to {@link org.glassfish.tyrus.spi.ServerContainerFactory#createServerContainer(java.util.Map)}.
      */
     public static final String WEBSOCKET_CLUSTER_CONTEXT = "websocket.cluster.ClusterContext";
@@ -98,7 +98,7 @@ public class WebSocketServerContainer extends TyrusServerContainer {
 
     /**
      * A key used for registering a application event listener implementation.
-     * <p/>
+     * <br>
      * For monitoring in Grizzly server an instance should be passed to the server in server properties:
      * <pre>
      *     serverProperties.put(ApplicationEventListener.APPLICATION_EVENT_LISTENER, new MyApplicationEventListener());

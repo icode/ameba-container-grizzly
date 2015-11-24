@@ -117,7 +117,7 @@ public class GrizzlyServerFilter extends BaseFilter {
      *
      * @param ctx {@link FilterChainContext}
      * @return {@link NextAction} instruction for {@link FilterChain}, how it should continue the execution
-     * @throws IOException
+     * @throws IOException error
      */
     @Override
     public NextAction handleClose(FilterChainContext ctx) throws IOException {
@@ -139,7 +139,7 @@ public class GrizzlyServerFilter extends BaseFilter {
      *
      * @param ctx {@link FilterChainContext}
      * @return {@link NextAction} instruction for {@link FilterChain}, how it should continue the execution
-     * @throws IOException
+     * @throws IOException error
      */
     @Override
     @SuppressWarnings("unchecked")

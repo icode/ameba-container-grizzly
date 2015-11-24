@@ -279,7 +279,7 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
 
     /**
      * An internal binder to enable Grizzly HTTP container specific types injection.
-     * <p/>
+     * <br>
      * This binder allows to inject underlying Grizzly HTTP request and response instances.
      * Note that since Grizzly {@code Request} class is not proxiable as it does not expose an empty constructor,
      * the injection of Grizzly request instance into singleton JAX-RS and Jersey providers is only supported via

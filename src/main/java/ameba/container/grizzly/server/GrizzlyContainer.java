@@ -43,7 +43,7 @@ public class GrizzlyContainer extends Container {
 
     /**
      * Server-side property to set custom worker {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}.
-     * <p/>
+     * <br>
      * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
      */
     public static final String WORKER_THREAD_POOL_CONFIG = "container.server.workerThreadPoolConfig";
@@ -52,7 +52,7 @@ public class GrizzlyContainer extends Container {
 
     /**
      * Server-side property to set custom selector {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}.
-     * <p/>
+     * <br>
      * Value is expected to be instance of {@link org.glassfish.grizzly.threadpool.ThreadPoolConfig}, can be {@code null} (it won't be used).
      */
     public static final String SELECTOR_THREAD_POOL_CONFIG = "container.server.selectorThreadPoolConfig";
