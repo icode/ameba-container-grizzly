@@ -205,15 +205,6 @@ public class WebSocketServerContainer extends TyrusServerContainer {
         return contextPath;
     }
 
-    public void reload() throws IOException, DeploymentException {
-        buildEngine();
-        super.start(contextPath, port);
-
-        if (applicationEventListener != null) {
-            applicationEventListener.onApplicationInitialized(contextPath);
-        }
-    }
-
     @Override
     public void stop() {
         super.stop();
