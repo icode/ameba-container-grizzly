@@ -18,6 +18,7 @@ import org.glassfish.grizzly.GrizzlyFuture;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.http.server.ServerConfiguration;
+import org.glassfish.grizzly.http.util.Constants;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
@@ -103,6 +104,8 @@ public class GrizzlyContainer extends Container {
             GrizzlyServerUtil.bindWebSocket(contextPath, getWebSocketContainerProvider(), listeners);
         }
 
+        String charset = StringUtils.defaultIfBlank((String) properties.get("app.encoding"), "utf-8");
+        System.setProperty(Constants.class.getName() + ".default-character-encoding", charset);
         httpServer = new HttpServer() {
             @Override
             public synchronized void start() throws IOException {
@@ -209,8 +212,8 @@ public class GrizzlyContainer extends Container {
         container = ContainerFactory.createContainer(GrizzlyHttpContainer.class, getApplication().getConfig());
         ServerConfiguration serverConfiguration = httpServer.getServerConfiguration();
 
-        String charset = StringUtils.defaultIfBlank((String) getApplication().getProperty("app.encoding"), "utf-8");
         serverConfiguration.setSendFileEnabled(true);
+        String charset = StringUtils.defaultIfBlank((String) getApplication().getProperty("app.encoding"), "utf-8");
         serverConfiguration.setDefaultQueryEncoding(Charset.forName(charset));
 
         GrizzlyHttpContainer httpHandler = container;
