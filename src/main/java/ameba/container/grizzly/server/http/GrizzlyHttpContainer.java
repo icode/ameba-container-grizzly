@@ -2,6 +2,7 @@ package ameba.container.grizzly.server.http;
 
 import ameba.container.grizzly.server.http.internal.LocalizationMessages;
 import ameba.container.internal.ConfigHelper;
+import ameba.exception.AmebaException;
 import org.glassfish.grizzly.CompletionHandler;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.Request;
@@ -35,6 +36,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -189,6 +191,21 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
     public void reload(final ResourceConfig configuration) {
         appHandler.onShutdown(this);
 
+        appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
+        appHandler.onReload(this);
+        appHandler.onStartup(this);
+        cacheConfigSetStatusOverSendError();
+        cacheConfigEnableLeadingContextPathSlashes();
+    }
+
+    public void reload(Callable<ResourceConfig> callable) {
+        appHandler.onShutdown(this);
+        ResourceConfig configuration;
+        try {
+            configuration = callable.call();
+        } catch (Exception e) {
+            throw new AmebaException(e);
+        }
         appHandler = new ApplicationHandler(configuration, new GrizzlyBinder());
         appHandler.onReload(this);
         appHandler.onStartup(this);

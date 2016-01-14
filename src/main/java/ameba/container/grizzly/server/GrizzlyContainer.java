@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -243,13 +244,22 @@ public class GrizzlyContainer extends Container {
     }
 
     @Override
-    protected void doReload(ResourceConfig odlConfig) {
+    protected void doReload() {
         WebSocketServerContainer old = null;
         if (webSocketEnabled) {
             old = webSocketServerContainer;
             buildWebSocketContainer();
         }
-        container.reload(getApplication().getConfig());
+        final Application application = getApplication();
+
+        container.reload(new Callable<ResourceConfig>() {
+            @Override
+            public ResourceConfig call() throws Exception {
+                application.reconfigure();
+                registerBinder(application.getConfig());
+                return application.getConfig();
+            }
+        });
         if (webSocketServerContainer != null && old != null)
             try {
                 old.stop();
