@@ -128,12 +128,6 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
 
     @Override
     public void service(final Request request, final Response response) throws CharConversionException {
-        try {
-            request.setCharacterEncoding("UTF-8");
-            response.setCharacterEncoding("UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            //
-        }
         final ResponseWriter responseWriter = new ResponseWriter(response, configSetStatusOverSendError);
         try {
             logger.debugLog("GrizzlyHttpContainer.service(...) started");
