@@ -111,24 +111,6 @@
             <artifactId>grizzly-http-server</artifactId>
             <version>${grizzly.version}</version>
         </dependency>
-        <!-- spdy -->
-        <dependency>
-            <groupId>org.glassfish.grizzly</groupId>
-            <artifactId>grizzly-spdy</artifactId>
-            <version>${grizzly.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.glassfish.grizzly</groupId>
-                    <artifactId>grizzly-npn-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.grizzly</groupId>
-            <artifactId>grizzly-npn-bootstrap</artifactId>
-            <version>1.1</version>
-            <scope>provided</scope>
-        </dependency>
 
         <dependency>
             <groupId>org.glassfish.grizzly</groupId>
@@ -150,7 +132,21 @@
             <artifactId>grizzly-http-server-monitoring</artifactId>
             <version>${grizzly.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.glassfish.grizzly</groupId>
+            <artifactId>grizzly-http2</artifactId>
+            <version>${grizzly.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.grizzly</groupId>
+            <artifactId>grizzly-npn-api</artifactId>
+            <version>${grizzly.npn.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.grizzly</groupId>
+            <artifactId>grizzly-npn-bootstrap</artifactId>
+            <version>${grizzly.npn.version}</version>
+        </dependency>
         <!-- Java WebSocket -->
         <dependency>
             <groupId>org.glassfish.tyrus</groupId>
@@ -185,6 +181,7 @@
         <ameba.version>0.1.9-SNAPSHOT</ameba.version>
         <tyrus.version>1.12</tyrus.version>
         <grizzly.version>2.3.24</grizzly.version>
+        <grizzly.npn.version>1.2</grizzly.npn.version>
     </properties>
     <build>
         <plugins>
