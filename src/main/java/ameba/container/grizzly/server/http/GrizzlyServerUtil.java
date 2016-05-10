@@ -10,6 +10,7 @@ import org.glassfish.grizzly.http.CompressionConfig;
 import org.glassfish.grizzly.http.ajp.AjpAddOn;
 import org.glassfish.grizzly.http.server.NetworkListener;
 import org.glassfish.grizzly.http2.Http2AddOn;
+import org.glassfish.grizzly.spdy.SpdyAddOn;
 import org.glassfish.grizzly.ssl.SSLContextConfigurator;
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.slf4j.Logger;
@@ -49,14 +50,13 @@ public class GrizzlyServerUtil {
                 listener.setSSLEngineConfig(sslEngineConfigurator);
 
                 if (connector.isSecureEnabled() && !connector.isAjpEnabled()) {
-                    Http2AddOn http2AddOn = new Http2AddOn();
-                    listener.registerAddOn(http2AddOn);
+                    listener.registerAddOn(new Http2AddOn());
+                    listener.registerAddOn(new SpdyAddOn());
                 }
             }
 
             if (connector.isAjpEnabled()) {
-                AjpAddOn ajpAddon = new AjpAddOn();
-                listener.registerAddOn(ajpAddon);
+                listener.registerAddOn(new AjpAddOn());
             }
 
             CompressionConfig compressionConfig = listener.getCompressionConfig();
