@@ -1,5 +1,6 @@
 package ameba.container.grizzly.server.http.websocket;
 
+import ameba.core.Application;
 import ameba.util.ClassUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -12,6 +13,7 @@ import org.glassfish.tyrus.ext.monitoring.jmx.SessionAwareApplicationMonitor;
 import org.glassfish.tyrus.server.TyrusServerContainer;
 import org.glassfish.tyrus.spi.WebSocketEngine;
 
+import javax.inject.Inject;
 import javax.websocket.DeploymentException;
 import javax.websocket.server.ServerEndpointConfig;
 import java.io.IOException;
@@ -123,12 +125,10 @@ public class WebSocketServerContainer extends TyrusServerContainer {
     private int port;
     private String contextPath;
 
-    private WebSocketServerContainer(Set<Class<?>> classes) {
-        super(classes);
-    }
-
-    public WebSocketServerContainer(Map<String, Object> properties) {
+    @Inject
+    public WebSocketServerContainer(Application application) {
         super((Set<Class<?>>) null);
+        Map<String, Object> properties = application.getProperties();
         final Map<String, Object> localProperties;
         // defensive copy
         if (properties == null) {

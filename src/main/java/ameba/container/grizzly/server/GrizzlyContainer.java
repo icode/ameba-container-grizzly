@@ -84,7 +84,7 @@ public class GrizzlyContainer extends Container {
 
 
     private void buildWebSocketContainer() {
-        webSocketServerContainer = new WebSocketServerContainer(getApplication().getProperties());
+        webSocketServerContainer = getServiceLocator().createAndInitialize(WebSocketServerContainer.class);
     }
 
     @Override
@@ -101,10 +101,8 @@ public class GrizzlyContainer extends Container {
         webSocketEnabled = !"false".equals(properties.get(WebSocketAddon.WEB_SOCKET_ENABLED_CONF));
         final String contextPath = StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/");
         if (webSocketEnabled) {
-            buildWebSocketContainer();
             GrizzlyServerUtil.bindWebSocket(contextPath, getWebSocketContainerProvider(), listeners);
         }
-
         String charset = StringUtils.defaultIfBlank((String) properties.get("app.encoding"), "utf-8");
         System.setProperty(Constants.class.getName() + ".default-character-encoding", charset);
         httpServer = new HttpServer() {
@@ -217,9 +215,11 @@ public class GrizzlyContainer extends Container {
         String charset = StringUtils.defaultIfBlank((String) getApplication().getProperty("app.encoding"), "utf-8");
         serverConfiguration.setDefaultQueryEncoding(Charset.forName(charset));
 
-        GrizzlyHttpContainer httpHandler = container;
-        httpHandler.setRequestURIEncoding(charset);
-        serverConfiguration.addHttpHandler(httpHandler);
+        container.setRequestURIEncoding(charset);
+        if (webSocketEnabled) {
+            buildWebSocketContainer();
+        }
+        serverConfiguration.addHttpHandler(container);
     }
 
     @Override

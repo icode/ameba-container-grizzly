@@ -126,8 +126,9 @@ public class GrizzlyServerFilter extends BaseFilter {
         if (connection != null) {
             TaskProcessor taskProcessor = getTaskProcessor(ctx);
             taskProcessor.processTask(new CloseTask(connection, CloseReasons.CLOSED_ABNORMALLY.getCloseReason(), ctx.getConnection()));
+            return ctx.getStopAction();
         }
-        return ctx.getStopAction();
+        return ctx.getInvokeAction();
     }
 
     /**
@@ -178,13 +179,17 @@ public class GrizzlyServerFilter extends BaseFilter {
                 }
             }
             // Handle handshake
-            logger.trace("handleHandshake websocket: {} content-size={} headers=\n{}",
-                    message.getContent().remaining(), message.getHttpHeader());
+            if (logger.isTraceEnabled()) {
+                logger.trace("handleHandshake websocket: {} content-size={} headers=\n{}",
+                        message.getContent().remaining(), message.getHttpHeader());
+            }
             return handleHandshake(ctx, message);
         }
 
-        logger.trace("handleRead websocket: {} content-size={} headers=\n{}",
-                tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
+        if (logger.isTraceEnabled()) {
+            logger.trace("handleRead websocket: {} content-size={} headers=\n{}",
+                    tyrusConnection, message.getContent().remaining(), message.getHttpHeader());
+        }
 
         // tyrusConnection is not null
         // this is websocket with the completed handshake
@@ -254,34 +259,45 @@ public class GrizzlyServerFilter extends BaseFilter {
                 grizzlyConnection.addCloseListener(new CloseListener() {
                     @Override
                     public void onClosed(Closeable closeable, ICloseType type) throws IOException {
-                        logger.trace("websocket closing: {}", connection);
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("websocket closing: {}", connection);
+                        }
                         // close detected on connection
                         connection.close(CloseReasons.GOING_AWAY.getCloseReason());
                         // might not be necessary, connection is going to be recycled/freed anyway
                         TYRUS_CONNECTION.remove(grizzlyConnection);
                         TASK_PROCESSOR.remove(grizzlyConnection);
-                        logger.trace("websocket closed: {}", connection);
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("websocket closed: {}", connection);
+                        }
                     }
                 });
 
-                logger.trace("handleHandshake websocket success: {} content-size={} headers=\n{}",
-                        grizzlyConnection, content.getContent().remaining(), content.getHttpHeader());
+                if (logger.isTraceEnabled()) {
+                    logger.trace("handleHandshake websocket success: {} content-size={} headers=\n{}",
+                            grizzlyConnection, content.getContent().remaining(), content.getHttpHeader());
+                }
 
                 return ctx.getStopAction();
 
             case HANDSHAKE_FAILED:
                 write(ctx, upgradeResponse);
                 content.recycle();
-
-                logger.trace("handleHandshake websocket failed: content-size={} headers=\n{}",
-                        content.getContent().remaining(), content.getHttpHeader());
+                if (logger.isTraceEnabled()) {
+                    logger.trace("handleHandshake websocket failed: content-size={} headers=\n{}",
+                            content.getContent().remaining(), content.getHttpHeader());
+                }
                 return ctx.getStopAction();
 
             case NOT_APPLICABLE:
-                writeTraceHeaders(ctx, upgradeResponse);
-                logger.trace("not found websocket handler: content-size={} headers=\n{}",
-                        content.getContent().remaining(), content.getHttpHeader());
-                return ctx.getInvokeAction();
+                upgradeResponse.setStatus(404);
+                write(ctx, upgradeResponse);
+                content.recycle();
+                if (logger.isTraceEnabled()) {
+                    logger.trace("not found websocket handler: content-size={} headers=\n{}",
+                            content.getContent().remaining(), content.getHttpHeader());
+                }
+                return ctx.getStopAction();
         }
 
         return ctx.getStopAction();
@@ -301,17 +317,6 @@ public class GrizzlyServerFilter extends BaseFilter {
         }
 
         ctx.write(HttpContent.builder(responsePacket).build());
-    }
-
-    private void writeTraceHeaders(FilterChainContext ctx, UpgradeResponse upgradeResponse) {
-        final HttpResponsePacket responsePacket =
-                ((HttpRequestPacket) ((HttpContent) ctx.getMessage()).getHttpHeader()).getResponse();
-
-        for (Map.Entry<String, List<String>> entry : upgradeResponse.getHeaders().entrySet()) {
-            if (entry.getKey().contains(UpgradeResponse.TRACING_HEADER_PREFIX)) {
-                responsePacket.setHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
-            }
-        }
     }
 
     private class ProcessTask extends TaskProcessor.Task {
