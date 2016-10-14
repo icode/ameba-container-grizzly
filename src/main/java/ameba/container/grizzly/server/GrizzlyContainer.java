@@ -4,6 +4,7 @@ import ameba.Ameba;
 import ameba.container.Container;
 import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
+import ameba.container.grizzly.server.http.websocket.TyrusWebSocketEndpointProvider;
 import ameba.container.grizzly.server.http.websocket.WebSocketServerContainer;
 import ameba.container.server.Connector;
 import ameba.core.Application;
@@ -11,6 +12,7 @@ import ameba.exception.AmebaException;
 import ameba.i18n.Messages;
 import ameba.util.ClassUtils;
 import ameba.websocket.WebSocketAddon;
+import ameba.websocket.WebSocketEndpointProvider;
 import ameba.websocket.WebSocketException;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
@@ -22,7 +24,9 @@ import org.glassfish.grizzly.http.util.Constants;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
+import org.glassfish.hk2.api.Factory;
 import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.jersey.server.ContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.tyrus.core.Utils;
@@ -66,8 +70,6 @@ public class GrizzlyContainer extends Container {
 
     private GrizzlyHttpContainer container;
 
-    private WebSocketContainerProvider webSocketServerContainerProvider;
-
     private WebSocketServerContainer webSocketServerContainer;
 
     private List<Connector> connectors;
@@ -82,9 +84,32 @@ public class GrizzlyContainer extends Container {
         return container.getApplicationHandler().getServiceLocator();
     }
 
+    @Override
+    protected void registerBinder(ResourceConfig configuration) {
+        super.registerBinder(configuration);
+        if (webSocketEnabled) {
+            webSocketServerContainer = new WebSocketServerContainer(getApplication());
+            configuration.register(new AbstractBinder() {
+                @Override
+                protected void configure() {
+                    bindFactory(new Factory<ServerContainer>() {
+                        @Override
+                        public ServerContainer provide() {
+                            return webSocketServerContainer;
+                        }
 
-    private void buildWebSocketContainer() {
-        webSocketServerContainer = getServiceLocator().createAndInitialize(WebSocketServerContainer.class);
+                        @Override
+                        public void dispose(ServerContainer instance) {
+                            ((WebSocketServerContainer) instance).stop();
+                        }
+                    })
+                            .to(ServerContainer.class)
+                            .to(WebSocketServerContainer.class);
+                    bind(TyrusWebSocketEndpointProvider.class)
+                            .to(WebSocketEndpointProvider.class);
+                }
+            });
+        }
     }
 
     @Override
@@ -101,7 +126,7 @@ public class GrizzlyContainer extends Container {
         webSocketEnabled = !"false".equals(properties.get(WebSocketAddon.WEB_SOCKET_ENABLED_CONF));
         final String contextPath = StringUtils.defaultIfBlank((String) properties.get(WEB_SOCKET_CONTEXT_PATH), "/");
         if (webSocketEnabled) {
-            GrizzlyServerUtil.bindWebSocket(contextPath, getWebSocketContainerProvider(), listeners);
+            GrizzlyServerUtil.bindWebSocket(contextPath, this, listeners);
         }
         String charset = StringUtils.defaultIfBlank((String) properties.get("app.encoding"), "utf-8");
         System.setProperty(Constants.class.getName() + ".default-character-encoding", charset);
@@ -216,40 +241,17 @@ public class GrizzlyContainer extends Container {
         serverConfiguration.setDefaultQueryEncoding(Charset.forName(charset));
 
         container.setRequestURIEncoding(charset);
-        if (webSocketEnabled) {
-            buildWebSocketContainer();
-        }
         serverConfiguration.addHttpHandler(container);
     }
 
     @Override
     public ServerContainer getWebSocketContainer() {
-        return webSocketServerContainer;
-    }
-
-    @Override
-    protected void configureWebSocketContainerProvider() {
-        webSocketServerContainerProvider = new WebSocketContainerProvider() {
-            @Override
-            public void dispose(ServerContainer serverContainer) {
-                if (serverContainer instanceof org.glassfish.tyrus.spi.ServerContainer)
-                    ((org.glassfish.tyrus.spi.ServerContainer) serverContainer).stop();
-            }
-        };
-    }
-
-    @Override
-    protected WebSocketContainerProvider getWebSocketContainerProvider() {
-        return webSocketServerContainerProvider;
+        return getServiceLocator().getService(WebSocketServerContainer.class);
     }
 
     @Override
     protected void doReload() {
-        WebSocketServerContainer old = null;
-        if (webSocketEnabled) {
-            old = webSocketServerContainer;
-            buildWebSocketContainer();
-        }
+        WebSocketServerContainer old = webSocketServerContainer;
         final Application application = getApplication();
 
         container.reload(new Callable<ResourceConfig>() {
@@ -260,13 +262,14 @@ public class GrizzlyContainer extends Container {
                 return application.getConfig();
             }
         });
-        if (webSocketServerContainer != null && old != null)
+        if (webSocketServerContainer != null && old != null) {
             try {
                 old.stop();
                 webSocketServerContainer.start(old.getContextPath(), old.getPort());
             } catch (IOException | DeploymentException e) {
                 throw new WebSocketException("reload web socket endpoint error", e);
             }
+        }
     }
 
     @Override

@@ -14,6 +14,7 @@ import org.glassfish.grizzly.http.*;
 import org.glassfish.grizzly.http.util.Parameters;
 import org.glassfish.grizzly.memory.ByteBufferArray;
 import org.glassfish.grizzly.utils.Charsets;
+import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.tyrus.container.grizzly.client.GrizzlyWriter;
 import org.glassfish.tyrus.container.grizzly.client.TaskProcessor;
 import org.glassfish.tyrus.core.CloseReasons;
@@ -48,25 +49,26 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private static final Attribute<org.glassfish.tyrus.spi.Connection> TYRUS_CONNECTION = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
             .createAttribute(GrizzlyServerFilter.class.getName() + ".Connection");
-
     private static final Attribute<TaskProcessor> TASK_PROCESSOR = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
             .createAttribute(TaskProcessor.class.getName() + ".TaskProcessor");
     public final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
-    private final Container.WebSocketContainerProvider webSocketContainerProvider;
+    private final Container container;
     private final String contextPath;
+    private JerseyScopeDelegate scope;
 
     // ------------------------------------------------------------ Constructors
 
     /**
      * Constructs a new {@link GrizzlyServerFilter}.
      *
-     * @param webSocketContainerProvider server container provider.
-     * @param contextPath                the context path of the deployed application. If the value is "" or "/", a request URI "/a"
-     *                                   will be divided into context path "" and url-pattern "/a".
+     * @param container   server container provider.
+     * @param contextPath the context path of the deployed application. If the value is "" or "/", a request URI "/a"
+     *                    will be divided into context path "" and url-pattern "/a".
      */
-    public GrizzlyServerFilter(Container.WebSocketContainerProvider webSocketContainerProvider, String contextPath) {
-        this.webSocketContainerProvider = webSocketContainerProvider;
+    public GrizzlyServerFilter(Container container, String contextPath) {
+        this.container = container;
         this.contextPath = contextPath.endsWith("/") ? contextPath : contextPath + "/";
+        this.scope = new JerseyScopeDelegate(container.getServiceLocator().getService(RequestScope.class));
     }
 
     // ----------------------------------------------------- Methods from Filter
@@ -233,25 +235,29 @@ public class GrizzlyServerFilter extends BaseFilter {
      */
     private NextAction handleHandshake(final FilterChainContext ctx, HttpContent content) {
 
+        final org.glassfish.grizzly.Connection grizzlyConnection = ctx.getConnection();
+        final RequestScope.Instance oldInstance = scope.retrieveCurrent();
+        final RequestScope.Instance instance = scope.createInstance();
+        scope.setCurrent(instance);
+
         final UpgradeRequest upgradeRequest = createWebSocketRequest(content);
         // TODO: final UpgradeResponse upgradeResponse = GrizzlyUpgradeResponse(HttpResponsePacket)
         final UpgradeResponse upgradeResponse = new TyrusUpgradeResponse();
-        final WebSocketEngine.UpgradeInfo upgradeInfo = ((ServerContainer) webSocketContainerProvider.provide())
+        final WebSocketEngine.UpgradeInfo upgradeInfo = ((ServerContainer) container.getWebSocketContainer())
                 .getWebSocketEngine().upgrade(upgradeRequest, upgradeResponse);
 
         switch (upgradeInfo.getStatus()) {
             case SUCCESS:
-                final org.glassfish.grizzly.Connection grizzlyConnection = ctx.getConnection();
                 write(ctx, upgradeResponse);
 
                 final org.glassfish.tyrus.spi.Connection connection =
                         upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()),
                                 new org.glassfish.tyrus.spi.Connection.CloseListener() {
-                            @Override
-                            public void close(CloseReason reason) {
-                                grizzlyConnection.close();
-                            }
-                        });
+                                    @Override
+                                    public void close(CloseReason reason) {
+                                        grizzlyConnection.close();
+                                    }
+                                });
 
                 TYRUS_CONNECTION.set(grizzlyConnection, connection);
                 TASK_PROCESSOR.set(grizzlyConnection, new TaskProcessor());
@@ -270,6 +276,8 @@ public class GrizzlyServerFilter extends BaseFilter {
                         if (logger.isTraceEnabled()) {
                             logger.trace("websocket closed: {}", connection);
                         }
+                        instance.release();
+                        scope.resumeCurrent(oldInstance);
                     }
                 });
 
@@ -287,6 +295,8 @@ public class GrizzlyServerFilter extends BaseFilter {
                     logger.trace("handleHandshake websocket failed: content-size={} headers=\n{}",
                             content.getContent().remaining(), content.getHttpHeader());
                 }
+                instance.release();
+                scope.resumeCurrent(oldInstance);
                 return ctx.getStopAction();
 
             case NOT_APPLICABLE:
@@ -297,6 +307,8 @@ public class GrizzlyServerFilter extends BaseFilter {
                     logger.trace("not found websocket handler: content-size={} headers=\n{}",
                             content.getContent().remaining(), content.getHttpHeader());
                 }
+                instance.release();
+                scope.resumeCurrent(oldInstance);
                 return ctx.getStopAction();
         }
 

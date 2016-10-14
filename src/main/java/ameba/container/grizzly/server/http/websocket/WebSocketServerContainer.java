@@ -8,7 +8,10 @@ import org.glassfish.tyrus.core.DebugContext;
 import org.glassfish.tyrus.core.TyrusWebSocketEngine;
 import org.glassfish.tyrus.core.Utils;
 import org.glassfish.tyrus.core.cluster.ClusterContext;
+import org.glassfish.tyrus.core.frame.TyrusFrame;
 import org.glassfish.tyrus.core.monitoring.ApplicationEventListener;
+import org.glassfish.tyrus.core.monitoring.EndpointEventListener;
+import org.glassfish.tyrus.core.monitoring.MessageEventListener;
 import org.glassfish.tyrus.ext.monitoring.jmx.SessionAwareApplicationMonitor;
 import org.glassfish.tyrus.server.TyrusServerContainer;
 import org.glassfish.tyrus.spi.WebSocketEngine;
@@ -148,12 +151,106 @@ public class WebSocketServerContainer extends TyrusServerContainer {
             clusterContext = ClassUtils.newInstance(clusterContextClass);
         }
 
-
-        String applicationEventListenerClass = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, String.class);
+        final String applicationEventListenerClass = Utils.getProperty(localProperties, WEBSOCKET_APPLICATION_EVENT_LISTENER, String.class);
         if (StringUtils.isNotBlank(applicationEventListenerClass)) {
             applicationEventListener = ClassUtils.newInstance(applicationEventListenerClass);
-        } else if ("true".equals(localProperties.get("jmx.enabled"))) {
-            applicationEventListener = new SessionAwareApplicationMonitor();
+        }
+        if ("true".equals(localProperties.get("jmx.enabled"))) {
+            if (applicationEventListener == null) {
+                applicationEventListener = new SessionAwareApplicationMonitor();
+            } else {
+                applicationEventListener = new ApplicationEventListener() {
+                    private ApplicationEventListener jmx = new SessionAwareApplicationMonitor();
+                    private ApplicationEventListener src = ClassUtils.newInstance(applicationEventListenerClass);
+
+                    @Override
+                    public void onApplicationInitialized(String applicationName) {
+                        try {
+                            src.onApplicationInitialized(applicationName);
+                        } finally {
+                            jmx.onApplicationInitialized(applicationName);
+                        }
+                    }
+
+                    @Override
+                    public void onApplicationDestroyed() {
+                        try {
+                            src.onApplicationDestroyed();
+                        } finally {
+                            jmx.onApplicationDestroyed();
+                        }
+                    }
+
+                    @Override
+                    public EndpointEventListener onEndpointRegistered(String endpointPath, Class<?> endpointClass) {
+                        final EndpointEventListener srcL;
+                        final EndpointEventListener jmxL;
+                        try {
+                            srcL = src.onEndpointRegistered(endpointPath, endpointClass);
+                        } finally {
+                            jmxL = jmx.onEndpointRegistered(endpointPath, endpointClass);
+                        }
+                        return new EndpointEventListener() {
+                            @Override
+                            public MessageEventListener onSessionOpened(final String sessionId) {
+                                final MessageEventListener srcM;
+                                final MessageEventListener jmxM;
+                                try {
+                                    srcM = srcL.onSessionOpened(sessionId);
+                                } finally {
+                                    jmxM = jmxL.onSessionOpened(sessionId);
+                                }
+                                return new MessageEventListener() {
+                                    @Override
+                                    public void onFrameSent(TyrusFrame.FrameType frameType, long payloadLength) {
+                                        try {
+                                            srcM.onFrameSent(frameType, payloadLength);
+                                        } finally {
+                                            jmxM.onFrameSent(frameType, payloadLength);
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onFrameReceived(TyrusFrame.FrameType frameType, long payloadLength) {
+                                        try {
+                                            srcM.onFrameReceived(frameType, payloadLength);
+                                        } finally {
+                                            jmxM.onFrameReceived(frameType, payloadLength);
+                                        }
+                                    }
+                                };
+                            }
+
+                            @Override
+                            public void onSessionClosed(String sessionId) {
+                                try {
+                                    srcL.onSessionClosed(sessionId);
+                                } finally {
+                                    jmxL.onSessionClosed(sessionId);
+                                }
+                            }
+
+                            @Override
+                            public void onError(String sessionId, Throwable t) {
+                                try {
+                                    srcL.onError(sessionId, t);
+                                } finally {
+                                    jmxL.onError(sessionId, t);
+                                }
+                            }
+                        };
+                    }
+
+                    @Override
+                    public void onEndpointUnregistered(String endpointPath) {
+                        try {
+                            src.onEndpointUnregistered(endpointPath);
+                        } finally {
+                            jmx.onEndpointUnregistered(endpointPath);
+                        }
+                    }
+                };
+            }
         }
 
         tracingType = Utils.getProperty(localProperties, WEBSOCKET_TRACING_TYPE, DebugContext.TracingType.class, DebugContext.TracingType.OFF);
@@ -189,6 +286,9 @@ public class WebSocketServerContainer extends TyrusServerContainer {
         return engine;
     }
 
+    public Integer getIncomingBufferSize() {
+        return incomingBufferSize;
+    }
 
     @Override
     public void start(final String rootPath, int port) throws IOException, DeploymentException {

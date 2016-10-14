@@ -159,8 +159,8 @@ public class GrizzlyServerUtil {
         return sslEngineConfigurator;
     }
 
-    public static void bindWebSocket(String contextPath, Container.WebSocketContainerProvider provider, final List<NetworkListener> listeners) {
-        org.glassfish.grizzly.http.server.AddOn addOn = new WebSocketAddOn(provider, contextPath);
+    public static void bindWebSocket(String contextPath, Container container, final List<NetworkListener> listeners) {
+        org.glassfish.grizzly.http.server.AddOn addOn = new WebSocketAddOn(container, contextPath);
 
         for (NetworkListener listener : listeners) {
             // idle timeout set to indefinite.
