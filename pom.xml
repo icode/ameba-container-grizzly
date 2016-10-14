@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.container</groupId>
     <artifactId>ameba-container-grizzly</artifactId>
-    <version>0.1.10-SNAPSHOT</version>
+    <version>0.1.10</version>
 
     <name>Ameba-Framework-Container-Grizzly</name>
     <description>A useful Java framework grizzly container!</description>
@@ -184,7 +184,7 @@
     </dependencies>
 
     <properties>
-        <ameba.version>0.1.10-SNAPSHOT</ameba.version>
+        <ameba.version>0.1.10</ameba.version>
         <tyrus.version>1.13</tyrus.version>
         <grizzly.version>2.3.26</grizzly.version>
         <grizzly.npn.version>1.3</grizzly.npn.version>
