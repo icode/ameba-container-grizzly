@@ -38,6 +38,7 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
     private ParameterExtractor[] onCloseParameters;
     private ParameterExtractor[] onErrorParameters;
     private EndpointConfig configuration;
+    private ComponentProviderService componentProvider;
 
     public AnnotatedEndpointMeta(Class endpointClass, WebSocket webSocket,
                                  Integer incomingBufferSize,
@@ -49,17 +50,12 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
         }
         final ErrorCollector collector = new ErrorCollector();
         configuration = createEndpointConfig(endpointClass, webSocket, locator);
-        ComponentProviderService componentProvider = new ComponentProviderService(componentProviderService) {
+        componentProvider = new ComponentProviderService(componentProviderService) {
             @Override
             public <T> Object getEndpointInstance(Class<T> endpointClass) throws InstantiationException {
                 return ((ServerEndpointConfig) configuration).getConfigurator().getEndpointInstance(endpointClass);
             }
         };
-        try {
-            endpoint = componentProvider.getEndpointInstance(endpointClass);
-        } catch (InstantiationException e) {
-            throw new WebSocketException(e);
-        }
         Method onOpen = null;
         Method onClose = null;
         Method onError = null;
@@ -206,6 +202,15 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
 
     public EndpointConfig getEndpointConfig() {
         return configuration;
+    }
+
+    @Override
+    public Object getEndpoint() {
+        try {
+            return componentProvider.getEndpointInstance(getEndpointClass());
+        } catch (InstantiationException e) {
+            throw new WebSocketException(e);
+        }
     }
 
     @Override
