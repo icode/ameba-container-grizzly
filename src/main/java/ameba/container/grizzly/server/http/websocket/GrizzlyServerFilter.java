@@ -1,6 +1,8 @@
 package ameba.container.grizzly.server.http.websocket;
 
 import ameba.container.Container;
+import ameba.container.server.Request;
+import ameba.websocket.WebSocketException;
 import com.google.common.collect.Maps;
 import org.glassfish.grizzly.*;
 import org.glassfish.grizzly.Connection;
@@ -14,7 +16,15 @@ import org.glassfish.grizzly.http.*;
 import org.glassfish.grizzly.http.util.Parameters;
 import org.glassfish.grizzly.memory.ByteBufferArray;
 import org.glassfish.grizzly.utils.Charsets;
+import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.jersey.internal.PropertiesDelegate;
 import org.glassfish.jersey.process.internal.RequestScope;
+import org.glassfish.jersey.server.ContainerRequest;
+import org.glassfish.jersey.server.internal.monitoring.EmptyRequestEventBuilder;
+import org.glassfish.jersey.server.internal.monitoring.RequestEventBuilder;
+import org.glassfish.jersey.server.internal.process.ReferencesInitializer;
+import org.glassfish.jersey.server.internal.process.RequestProcessingContext;
+import org.glassfish.jersey.server.internal.routing.UriRoutingContext;
 import org.glassfish.tyrus.container.grizzly.client.GrizzlyWriter;
 import org.glassfish.tyrus.container.grizzly.client.TaskProcessor;
 import org.glassfish.tyrus.core.CloseReasons;
@@ -27,9 +37,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.websocket.CloseReason;
+import javax.ws.rs.core.SecurityContext;
+import javax.ws.rs.core.UriBuilder;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.security.Principal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -226,6 +242,31 @@ public class GrizzlyServerFilter extends BaseFilter {
         return TASK_PROCESSOR.get(ctx.getConnection());
     }
 
+    private SecurityContext getSecurityContext(final UpgradeRequest request) {
+        return new SecurityContext() {
+
+            @Override
+            public boolean isUserInRole(final String role) {
+                return request.isUserInRole(role);
+            }
+
+            @Override
+            public boolean isSecure() {
+                return request.isSecure();
+            }
+
+            @Override
+            public Principal getUserPrincipal() {
+                return request.getUserPrincipal();
+            }
+
+            @Override
+            public String getAuthenticationScheme() {
+                return null;
+            }
+        };
+    }
+
     /**
      * Handle websocket handshake
      *
@@ -233,7 +274,7 @@ public class GrizzlyServerFilter extends BaseFilter {
      * @param content HTTP message
      * @return {@link NextAction} instruction for {@link org.glassfish.grizzly.filterchain.FilterChain}, how it should continue the execution
      */
-    private NextAction handleHandshake(final FilterChainContext ctx, HttpContent content) {
+    private NextAction handleHandshake(final FilterChainContext ctx, final HttpContent content) {
 
         final org.glassfish.grizzly.Connection grizzlyConnection = ctx.getConnection();
         final RequestScope.Instance oldInstance = scope.retrieveCurrent();
@@ -241,7 +282,6 @@ public class GrizzlyServerFilter extends BaseFilter {
         scope.setCurrent(instance);
 
         final UpgradeRequest upgradeRequest = createWebSocketRequest(content);
-        // TODO: final UpgradeResponse upgradeResponse = GrizzlyUpgradeResponse(HttpResponsePacket)
         final UpgradeResponse upgradeResponse = new TyrusUpgradeResponse();
         final WebSocketEngine.UpgradeInfo upgradeInfo = ((ServerContainer) container.getWebSocketContainer())
                 .getWebSocketEngine().upgrade(upgradeRequest, upgradeResponse);
@@ -249,6 +289,66 @@ public class GrizzlyServerFilter extends BaseFilter {
         switch (upgradeInfo.getStatus()) {
             case SUCCESS:
                 write(ctx, upgradeResponse);
+
+                RequestEventBuilder monitoringEventBuilder = EmptyRequestEventBuilder.INSTANCE;
+                ServiceLocator locator = container.getServiceLocator();
+                final Map<String, Object> attrs = Maps.newLinkedHashMap();
+                final URI uri = upgradeRequest.getRequestURI();
+                final ContainerRequest _request;
+                try {
+                    _request = new Request(
+                            new URI(uri.getScheme(), null, uri.getHost(),
+                                    uri.getPort(), contextPath, null, null),
+                            upgradeRequest.getRequestURI(),
+                            "GET",
+                            getSecurityContext(upgradeRequest),
+                            new PropertiesDelegate() {
+
+                                @Override
+                                public Object getProperty(String name) {
+                                    return attrs.get(name);
+                                }
+
+                                @Override
+                                public Collection<String> getPropertyNames() {
+                                    return attrs.keySet();
+                                }
+
+                                @Override
+                                public void setProperty(String name, Object object) {
+                                    attrs.put(name, object);
+                                }
+
+                                @Override
+                                public void removeProperty(String name) {
+                                    attrs.remove(name);
+                                }
+                            }
+                    ) {
+                        @Override
+                        public String getRemoteAddr() {
+                            return ((InetSocketAddress) grizzlyConnection.getPeerAddress())
+                                    .getAddress().getHostAddress();
+                        }
+
+                        @Override
+                        public URI getRawReqeustUri() {
+                            return UriBuilder.fromUri(uri).build();
+                        }
+                    };
+                } catch (URISyntaxException e) {
+                    throw new WebSocketException(e);
+                }
+                final UriRoutingContext routingContext = (UriRoutingContext) _request.getUriInfo();
+
+                final RequestProcessingContext reqContext = new RequestProcessingContext(
+                        locator,
+                        _request,
+                        routingContext,
+                        monitoringEventBuilder,
+                        null);
+
+                locator.createAndInitialize(ReferencesInitializer.class).apply(reqContext);
 
                 final org.glassfish.tyrus.spi.Connection connection =
                         upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()),
