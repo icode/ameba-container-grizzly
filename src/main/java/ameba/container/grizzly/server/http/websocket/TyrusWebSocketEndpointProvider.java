@@ -1,8 +1,8 @@
 package ameba.container.grizzly.server.http.websocket;
 
-import ameba.websocket.EndpointMeta;
 import ameba.websocket.WebSocket;
 import ameba.websocket.WebSocketEndpointProvider;
+import ameba.websocket.internal.EndpointMeta;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.tyrus.core.ComponentProviderService;
 

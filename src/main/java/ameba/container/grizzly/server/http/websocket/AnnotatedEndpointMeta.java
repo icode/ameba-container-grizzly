@@ -1,8 +1,8 @@
 package ameba.container.grizzly.server.http.websocket;
 
-import ameba.websocket.EndpointMeta;
 import ameba.websocket.WebSocket;
 import ameba.websocket.WebSocketException;
+import ameba.websocket.internal.EndpointMeta;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import org.glassfish.hk2.api.ServiceLocator;
