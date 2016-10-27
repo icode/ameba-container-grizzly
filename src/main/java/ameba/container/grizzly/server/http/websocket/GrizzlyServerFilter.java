@@ -311,12 +311,46 @@ public class GrizzlyServerFilter extends BaseFilter {
                 }
 
                 @Override
+                public String getRemoteHost() {
+                    return ((InetSocketAddress) grizzlyConnection.getPeerAddress())
+                            .getHostName();
+                }
+
+                @Override
+                public int getRemotePort() {
+                    return ((InetSocketAddress) grizzlyConnection.getLocalAddress())
+                            .getPort();
+                }
+
+                @Override
+                public String getLocalAddr() {
+                    return ((InetSocketAddress) grizzlyConnection.getLocalAddress())
+                            .getAddress().getHostAddress();
+                }
+
+                @Override
+                public String getLocalName() {
+                    return ((InetSocketAddress) grizzlyConnection.getLocalAddress())
+                            .getHostName();
+                }
+
+                @Override
+                public int getLocalPort() {
+                    return ((InetSocketAddress) grizzlyConnection.getLocalAddress())
+                            .getPort();
+                }
+
+                @Override
                 public URI getRawReqeustUri() {
                     return UriBuilder.fromUri(uri).build();
                 }
             };
         } catch (URISyntaxException e) {
             throw new WebSocketException(e);
+        }
+
+        for (Map.Entry<String, List<String>> header : upgradeRequest.getHeaders().entrySet()) {
+            _request.getHeaders().addAll(header.getKey(), header.getValue());
         }
         final UriRoutingContext routingContext = (UriRoutingContext) _request.getUriInfo();
 

@@ -28,7 +28,6 @@ import javax.ws.rs.core.UriBuilder;
 import java.io.CharConversionException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -140,6 +139,31 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
                 @Override
                 public String getRemoteAddr() {
                     return request.getRemoteAddr();
+                }
+
+                @Override
+                public String getRemoteHost() {
+                    return request.getRemoteHost();
+                }
+
+                @Override
+                public int getRemotePort() {
+                    return request.getRemotePort();
+                }
+
+                @Override
+                public String getLocalAddr() {
+                    return request.getLocalAddr();
+                }
+
+                @Override
+                public String getLocalName() {
+                    return request.getLocalName();
+                }
+
+                @Override
+                public int getLocalPort() {
+                    return request.getLocalPort();
                 }
 
                 @Override
