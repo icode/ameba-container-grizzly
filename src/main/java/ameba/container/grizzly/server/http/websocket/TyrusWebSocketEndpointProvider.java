@@ -26,7 +26,7 @@ public class TyrusWebSocketEndpointProvider implements WebSocketEndpointProvider
     }
 
     @Override
-    public EndpointMeta parseEndpointMeta(Class endpointClass, WebSocket webSocketConf) {
+    public EndpointMeta parseMeta(Class endpointClass, WebSocket webSocketConf) {
         return new AnnotatedEndpointMeta(
                 endpointClass,
                 webSocketConf,
