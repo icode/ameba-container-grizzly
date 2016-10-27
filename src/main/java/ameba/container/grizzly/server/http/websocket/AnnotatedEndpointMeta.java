@@ -1,12 +1,17 @@
 package ameba.container.grizzly.server.http.websocket;
 
+import ameba.core.Requests;
 import ameba.websocket.WebSocket;
 import ameba.websocket.WebSocketException;
+import ameba.websocket.WebSocketSession;
 import ameba.websocket.internal.EndpointMeta;
+import ameba.websocket.internal.NativeWebSocketSession;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.jersey.internal.inject.Injections;
+import org.glassfish.jersey.internal.util.collection.Ref;
+import org.glassfish.jersey.internal.util.collection.Refs;
 import org.glassfish.tyrus.core.ComponentProviderService;
 import org.glassfish.tyrus.core.ErrorCollector;
 import org.glassfish.tyrus.core.MaxSessions;
@@ -315,6 +320,7 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
         ParameterExtractor[] result = new ParameterExtractor[method.getParameterTypes().length];
         boolean sessionPresent = false;
         unknownParams.clear();
+        final Ref<WebSocketSession> sessionRef = Refs.emptyRef();
 
         for (int i = 0; i < method.getParameterTypes().length; i++) {
             final Class<?> type = method.getParameterTypes()[i];
@@ -355,6 +361,22 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
                     @Override
                     public Object value(Session session, Object... values) {
                         return session;
+                    }
+                };
+            } else if (type == WebSocketSession.class) {
+                if (sessionPresent) {
+                    collector.addException(new DeploymentException(
+                            LocalizationMessages.ENDPOINT_MULTIPLE_SESSION_PARAM(method.getName())));
+                } else {
+                    sessionPresent = true;
+                }
+                result[i] = new ParameterExtractor() {
+                    @Override
+                    public Object value(Session session, Object... values) {
+                        if (sessionRef.get() == null) {
+                            sessionRef.set(new NativeWebSocketSession(session, Requests.getRequest()));
+                        }
+                        return sessionRef.get();
                     }
                 };
             } else if (type == EndpointConfig.class) {
