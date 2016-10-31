@@ -4,8 +4,8 @@ import ameba.core.Requests;
 import ameba.websocket.WebSocket;
 import ameba.websocket.WebSocketException;
 import ameba.websocket.WebSocketSession;
+import ameba.websocket.adapter.standard.StandardWebSocketSession;
 import ameba.websocket.internal.EndpointMeta;
-import ameba.websocket.internal.NativeWebSocketSession;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import org.glassfish.hk2.api.ServiceLocator;
@@ -28,6 +28,7 @@ import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
 import java.util.*;
 
 /**
@@ -374,7 +375,16 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
                     @Override
                     public Object value(Session session, Object... values) {
                         if (sessionRef.get() == null) {
-                            sessionRef.set(new NativeWebSocketSession(session, Requests.getRequest()));
+                            StandardWebSocketSession standard =
+                                    new StandardWebSocketSession(
+                                            Requests.getHeaders(),
+                                            session.getUserProperties(),
+                                            new InetSocketAddress(Requests.getLocalName(), Requests.getLocalPort()),
+                                            new InetSocketAddress(Requests.getRemoteHost(), Requests.getRemotePort()),
+                                            null
+                                    );
+                            standard.initializeNativeSession(session);
+                            sessionRef.set(standard);
                         }
                         return sessionRef.get();
                     }
