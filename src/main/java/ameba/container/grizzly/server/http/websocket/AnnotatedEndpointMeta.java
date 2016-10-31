@@ -6,6 +6,7 @@ import ameba.websocket.WebSocketException;
 import ameba.websocket.WebSocketSession;
 import ameba.websocket.adapter.standard.StandardWebSocketSession;
 import ameba.websocket.internal.EndpointMeta;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import org.glassfish.hk2.api.ServiceLocator;
@@ -251,8 +252,8 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
 
     private EndpointConfig createEndpointConfig(Class<?> annotatedClass,
                                                 WebSocket wseAnnotation, ServiceLocator locator) {
-        List<Class<? extends Encoder>> encoderClasses = new ArrayList<Class<? extends Encoder>>();
-        List<Class<? extends Decoder>> decoderClasses = new ArrayList<Class<? extends Decoder>>();
+        List<Class<? extends Encoder>> encoderClasses = Lists.newArrayList();
+        List<Class<? extends Decoder>> decoderClasses = Lists.newArrayList();
         String[] subProtocols;
 
         encoderClasses.addAll(Arrays.asList(wseAnnotation.encoders()));
