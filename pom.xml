@@ -181,6 +181,13 @@
             <version>${ameba.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>co.paralleluniverse</groupId>
+            <artifactId>quasar-core</artifactId>
+            <version>0.7.6</version>
+            <classifier>jdk8</classifier>
+        </dependency>
     </dependencies>
 
     <properties>
@@ -188,6 +195,7 @@
         <tyrus.version>1.13</tyrus.version>
         <grizzly.version>2.3.26</grizzly.version>
         <grizzly.npn.version>1.3</grizzly.npn.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <build>
         <plugins>
@@ -197,9 +205,27 @@
                 <version>2.5.1</version>
                 <inherited>true</inherited>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.vlkan</groupId>
+                <artifactId>quasar-maven-plugin</artifactId>
+                <version>0.7.3</version>
+                <configuration>
+                    <buildDirectory>${project.build.outputDirectory}</buildDirectory>
+                    <check>true</check>
+                    <debug>false</debug>
+                    <verbose>false</verbose>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>instrument</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -5,8 +5,10 @@ import ameba.container.server.Request;
 import ameba.lib.JerseyScopeDelegate;
 import ameba.websocket.WebSocketException;
 import com.google.common.collect.Maps;
-import org.glassfish.grizzly.*;
+import org.glassfish.grizzly.Buffer;
+import org.glassfish.grizzly.CloseListener;
 import org.glassfish.grizzly.Connection;
+import org.glassfish.grizzly.Grizzly;
 import org.glassfish.grizzly.attributes.Attribute;
 import org.glassfish.grizzly.attributes.AttributeHolder;
 import org.glassfish.grizzly.filterchain.BaseFilter;
@@ -32,7 +34,6 @@ import org.glassfish.tyrus.core.CloseReasons;
 import org.glassfish.tyrus.core.RequestContext;
 import org.glassfish.tyrus.core.TyrusUpgradeResponse;
 import org.glassfish.tyrus.core.Utils;
-import org.glassfish.tyrus.spi.ReadHandler;
 import org.glassfish.tyrus.spi.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -389,32 +390,24 @@ public class GrizzlyServerFilter extends BaseFilter {
 
                 final org.glassfish.tyrus.spi.Connection connection =
                         upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()),
-                                new org.glassfish.tyrus.spi.Connection.CloseListener() {
-                                    @Override
-                                    public void close(CloseReason reason) {
-                                        grizzlyConnection.close();
-                                    }
-                                });
+                                reason -> grizzlyConnection.close());
 
                 TYRUS_CONNECTION.set(grizzlyConnection, connection);
                 TASK_PROCESSOR.set(grizzlyConnection, new TaskProcessor());
 
-                grizzlyConnection.addCloseListener(new CloseListener() {
-                    @Override
-                    public void onClosed(Closeable closeable, ICloseType type) throws IOException {
-                        if (logger.isTraceEnabled()) {
-                            logger.trace("websocket closing: {}", connection);
-                        }
-                        // close detected on connection
-                        connection.close(CloseReasons.GOING_AWAY.getCloseReason());
-                        // might not be necessary, connection is going to be recycled/freed anyway
-                        TYRUS_CONNECTION.remove(grizzlyConnection);
-                        TASK_PROCESSOR.remove(grizzlyConnection);
-                        if (logger.isTraceEnabled()) {
-                            logger.trace("websocket closed: {}", connection);
-                        }
-                        scope.leaveScope(oldInstance);
+                grizzlyConnection.addCloseListener((CloseListener) (closeable, type) -> {
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("websocket closing: {}", connection);
                     }
+                    // close detected on connection
+                    connection.close(CloseReasons.GOING_AWAY.getCloseReason());
+                    // might not be necessary, connection is going to be recycled/freed anyway
+                    TYRUS_CONNECTION.remove(grizzlyConnection);
+                    TASK_PROCESSOR.remove(grizzlyConnection);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("websocket closed: {}", connection);
+                    }
+                    scope.leaveScope(oldInstance);
                 });
 
                 if (logger.isTraceEnabled()) {

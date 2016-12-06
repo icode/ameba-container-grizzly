@@ -37,7 +37,6 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -118,7 +117,7 @@ public class GrizzlyContainer extends Container {
         connectors = Connector.createDefaultConnectors(properties);
         if (connectors.size() == 0) {
             logger.warn(Messages.get("info.connector.none"));
-            connectors.add(Connector.createDefault(Maps.<String, String>newHashMap()));
+            connectors.add(Connector.createDefault(Maps.newHashMap()));
         }
         List<NetworkListener> listeners = GrizzlyServerUtil.createListeners(connectors,
                 GrizzlyServerUtil.createCompressionConfig("http", properties));
@@ -254,13 +253,10 @@ public class GrizzlyContainer extends Container {
         WebSocketServerContainer old = webSocketServerContainer;
         final Application application = getApplication();
 
-        container.reload(new Callable<ResourceConfig>() {
-            @Override
-            public ResourceConfig call() throws Exception {
-                application.reconfigure();
-                registerBinder(application.getConfig());
-                return application.getConfig();
-            }
+        container.reload(() -> {
+            application.reconfigure();
+            registerBinder(application.getConfig());
+            return application.getConfig();
         });
         if (webSocketServerContainer != null && old != null) {
             try {

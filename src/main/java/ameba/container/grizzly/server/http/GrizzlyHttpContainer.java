@@ -3,6 +3,7 @@ package ameba.container.grizzly.server.http;
 import ameba.container.grizzly.server.http.internal.LocalizationMessages;
 import ameba.container.internal.ConfigHelper;
 import ameba.exception.AmebaException;
+import co.paralleluniverse.fibers.Suspendable;
 import org.glassfish.grizzly.CompletionHandler;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.Request;
@@ -18,7 +19,6 @@ import org.glassfish.jersey.server.*;
 import org.glassfish.jersey.server.internal.ContainerUtils;
 import org.glassfish.jersey.server.spi.Container;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
-import org.glassfish.jersey.server.spi.RequestScopedInitializer;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -126,6 +126,7 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
     }
 
     @Override
+    @Suspendable
     public void service(final Request request, final Response response) throws CharConversionException {
         final ResponseWriter responseWriter = new ResponseWriter(response, configSetStatusOverSendError);
         try {
@@ -177,13 +178,9 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
             }
             requestContext.setWriter(responseWriter);
 
-            requestContext.setRequestScopedInitializer(new RequestScopedInitializer() {
-
-                @Override
-                public void initialize(final ServiceLocator locator) {
-                    locator.<Ref<Request>>getService(RequestTYPE).set(request);
-                    locator.<Ref<Response>>getService(ResponseTYPE).set(response);
-                }
+            requestContext.setRequestScopedInitializer(locator -> {
+                locator.<Ref<Request>>getService(RequestTYPE).set(request);
+                locator.<Ref<Response>>getService(ResponseTYPE).set(response);
             });
             appHandler.handle(requestContext);
         } finally {
@@ -418,18 +415,14 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
         public boolean suspend(final long timeOut, final TimeUnit timeUnit, final TimeoutHandler timeoutHandler) {
             try {
                 grizzlyResponse.suspend(timeOut, timeUnit, EMPTY_COMPLETION_HANDLER,
-                        new org.glassfish.grizzly.http.server.TimeoutHandler() {
-
-                            @Override
-                            public boolean onTimeout(final Response response) {
-                                if (timeoutHandler != null) {
-                                    timeoutHandler.onTimeout(ResponseWriter.this);
-                                }
-
-                                // TODO should we return true in some cases instead?
-                                // Returning false relies on the fact that the timeoutHandler will resume the response.
-                                return false;
+                        response -> {
+                            if (timeoutHandler != null) {
+                                timeoutHandler.onTimeout(ResponseWriter.this);
                             }
+
+                            // TODO should we return true in some cases instead?
+                            // Returning false relies on the fact that the timeoutHandler will resume the response.
+                            return false;
                         }
                 );
                 return true;

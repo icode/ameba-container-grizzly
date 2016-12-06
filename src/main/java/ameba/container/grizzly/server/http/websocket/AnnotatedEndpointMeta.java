@@ -296,7 +296,7 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
     }
 
     private List<Class<? extends Decoder>> getDefaultDecoders() {
-        final List<Class<? extends Decoder>> classList = new ArrayList<Class<? extends Decoder>>();
+        @SuppressWarnings("Convert2Diamond") final List<Class<? extends Decoder>> classList = new ArrayList<Class<? extends Decoder>>();
         classList.addAll(PrimitiveDecoders.ALL);
         classList.add(NoOpTextCoder.class);
         classList.add(NoOpByteBufferCoder.class);
@@ -308,13 +308,14 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
 
     private ParameterExtractor[] getOnCloseParameterExtractors(final Method method, Map<Integer, Class<?>>
             unknownParams, ErrorCollector collector) {
+        //noinspection Convert2Diamond
         return getParameterExtractors(
                 method, unknownParams, new HashSet<Class<?>>(Arrays.asList((Class<?>) CloseReason.class)), collector);
     }
 
     private ParameterExtractor[] getParameterExtractors(final Method method, Map<Integer, Class<?>> unknownParams,
                                                         ErrorCollector collector) {
-        return getParameterExtractors(method, unknownParams, Collections.<Class<?>>emptySet(), collector);
+        return getParameterExtractors(method, unknownParams, Collections.emptySet(), collector);
     }
 
     private ParameterExtractor[] getParameterExtractors(final Method method, Map<Integer, Class<?>> unknownParams,
@@ -359,12 +360,7 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
                 } else {
                     sessionPresent = true;
                 }
-                result[i] = new ParameterExtractor() {
-                    @Override
-                    public Object value(Session session, Object... values) {
-                        return session;
-                    }
-                };
+                result[i] = (session, values) -> session;
             } else if (type == WebSocketSession.class) {
                 if (sessionPresent) {
                     collector.addException(new DeploymentException(
@@ -372,43 +368,32 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
                 } else {
                     sessionPresent = true;
                 }
-                result[i] = new ParameterExtractor() {
-                    @Override
-                    public Object value(Session session, Object... values) {
-                        if (sessionRef.get() == null) {
-                            StandardWebSocketSession standard =
-                                    new StandardWebSocketSession(
-                                            Requests.getHeaders(),
-                                            session.getUserProperties(),
-                                            new InetSocketAddress(Requests.getLocalName(), Requests.getLocalPort()),
-                                            new InetSocketAddress(Requests.getRemoteHost(), Requests.getRemotePort()),
-                                            null
-                                    );
-                            standard.initializeNativeSession(session);
-                            sessionRef.set(standard);
-                        }
-                        return sessionRef.get();
+                result[i] = (session, values) -> {
+                    if (sessionRef.get() == null) {
+                        StandardWebSocketSession standard =
+                                new StandardWebSocketSession(
+                                        Requests.getHeaders(),
+                                        session.getUserProperties(),
+                                        new InetSocketAddress(Requests.getLocalName(), Requests.getLocalPort()),
+                                        new InetSocketAddress(Requests.getRemoteHost(), Requests.getRemotePort()),
+                                        null
+                                );
+                        standard.initializeNativeSession(session);
+                        sessionRef.set(standard);
                     }
+                    return sessionRef.get();
                 };
             } else if (type == EndpointConfig.class) {
-                result[i] = new ParameterExtractor() {
-                    @Override
-                    public Object value(Session session, Object... values) {
-                        return getEndpointConfig();
-                    }
-                };
+                result[i] = (session, values) -> getEndpointConfig();
             } else if (params.contains(type)) {
-                result[i] = new ParameterExtractor() {
-                    @Override
-                    public Object value(Session session, Object... values) {
-                        for (Object value : values) {
-                            if (value != null && type.isAssignableFrom(value.getClass())) {
-                                return value;
-                            }
+                result[i] = (session, values) -> {
+                    for (Object value : values) {
+                        if (value != null && type.isAssignableFrom(value.getClass())) {
+                            return value;
                         }
-
-                        return null;
                     }
+
+                    return null;
                 };
             } else {
                 unknownParams.put(i, type);
