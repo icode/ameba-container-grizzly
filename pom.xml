@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.container</groupId>
     <artifactId>ameba-container-grizzly</artifactId>
-    <version>0.1.11-SNAPSHOT</version>
+    <version>0.1.11</version>
 
     <name>Ameba-Framework-Container-Grizzly</name>
     <description>A useful Java framework grizzly container!</description>
@@ -181,18 +181,12 @@
             <version>${ameba.version}</version>
             <scope>provided</scope>
         </dependency>
-
-        <dependency>
-            <groupId>co.paralleluniverse</groupId>
-            <artifactId>quasar-core</artifactId>
-            <version>0.7.6</version>
-            <classifier>jdk8</classifier>
-        </dependency>
     </dependencies>
 
     <properties>
-        <ameba.version>0.1.11-SNAPSHOT</ameba.version>
+        <ameba.version>0.1.11</ameba.version>
         <tyrus.version>1.13</tyrus.version>
+        <!-- 2.3.27 ~ 2.3.28 版本有问题memcached无法使用 -->
         <grizzly.version>2.3.26</grizzly.version>
         <grizzly.npn.version>1.3</grizzly.npn.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -209,16 +203,32 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
-            <plugin>
+            <!--<plugin>
                 <groupId>com.vlkan</groupId>
                 <artifactId>quasar-maven-plugin</artifactId>
                 <version>0.7.3</version>
                 <configuration>
-                    <buildDirectory>${project.build.outputDirectory}</buildDirectory>
                     <check>true</check>
                     <debug>false</debug>
                     <verbose>false</verbose>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.amebastack.container</groupId>
+                        <artifactId>ameba-container-grizzly</artifactId>
+                        <version>${project.version}</version>
+                        <exclusions>
+                            <exclusion>
+                                <groupId>co.paralleluniverse</groupId>
+                                <artifactId>quasar-core</artifactId>
+                            </exclusion>
+                            <exclusion>
+                                <groupId>co.paralleluniverse</groupId>
+                                <artifactId>quasar-actors</artifactId>
+                            </exclusion>
+                        </exclusions>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <goals>
@@ -226,7 +236,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin>-->
         </plugins>
     </build>
 </project>
