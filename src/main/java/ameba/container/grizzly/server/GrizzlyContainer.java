@@ -279,7 +279,7 @@ public class GrizzlyContainer extends Container {
 
     @Override
     public void doShutdown() throws Exception {
-        httpServer.shutdown().get();
+        httpServer.shutdownNow();
     }
 
     @Override

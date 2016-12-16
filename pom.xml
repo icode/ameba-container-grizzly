@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.container</groupId>
     <artifactId>ameba-container-grizzly</artifactId>
-    <version>0.1.11</version>
+    <version>0.1.12</version>
 
     <name>Ameba-Framework-Container-Grizzly</name>
     <description>A useful Java framework grizzly container!</description>
