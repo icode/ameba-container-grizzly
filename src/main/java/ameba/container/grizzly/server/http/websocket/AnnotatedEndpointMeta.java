@@ -9,7 +9,7 @@ import ameba.websocket.internal.EndpointMeta;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
-import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.jersey.internal.inject.InjectionManager;
 import org.glassfish.jersey.internal.inject.Injections;
 import org.glassfish.jersey.internal.util.collection.Ref;
 import org.glassfish.jersey.internal.util.collection.Refs;
@@ -49,14 +49,14 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
 
     public AnnotatedEndpointMeta(Class endpointClass, WebSocket webSocket,
                                  Integer incomingBufferSize,
-                                 ServiceLocator locator,
+                                 InjectionManager manager,
                                  ComponentProviderService componentProviderService) {
         super(endpointClass);
         if (incomingBufferSize == null) {
             incomingBufferSize = INCOMING_BUFFER_SIZE;
         }
         final ErrorCollector collector = new ErrorCollector();
-        configuration = createEndpointConfig(endpointClass, webSocket, locator);
+        configuration = createEndpointConfig(endpointClass, webSocket, manager);
         componentProvider = new ComponentProviderService(componentProviderService) {
             @Override
             public <T> Object getEndpointInstance(Class<T> endpointClass) throws InstantiationException {
@@ -251,7 +251,7 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
     }
 
     private EndpointConfig createEndpointConfig(Class<?> annotatedClass,
-                                                WebSocket wseAnnotation, ServiceLocator locator) {
+                                                WebSocket wseAnnotation, InjectionManager manager) {
         List<Class<? extends Encoder>> encoderClasses = Lists.newArrayList();
         List<Class<? extends Decoder>> decoderClasses = Lists.newArrayList();
         String[] subProtocols;
@@ -277,7 +277,7 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
                             .decoders(decoderClasses)
                             .subprotocols(Arrays.asList(subProtocols));
             if (!wseAnnotation.configurator().equals(ServerEndpointConfig.Configurator.class)) {
-                builder = builder.configurator(Injections.getOrCreate(locator, wseAnnotation.configurator()));
+                builder = builder.configurator(Injections.getOrCreate(manager, wseAnnotation.configurator()));
             }
             builder.maxSessions(wseMaxSessionsAnnotation.value());
             return builder.build();
@@ -289,7 +289,7 @@ public class AnnotatedEndpointMeta extends EndpointMeta {
                             .decoders(decoderClasses)
                             .subprotocols(Arrays.asList(subProtocols));
             if (!wseAnnotation.configurator().equals(ServerEndpointConfig.Configurator.class)) {
-                builder = builder.configurator(Injections.getOrCreate(locator, wseAnnotation.configurator()));
+                builder = builder.configurator(Injections.getOrCreate(manager, wseAnnotation.configurator()));
             }
             return builder.build();
         }

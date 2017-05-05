@@ -25,8 +25,8 @@ import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
 import org.glassfish.hk2.api.Factory;
-import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.glassfish.jersey.internal.inject.InjectionManager;
 import org.glassfish.jersey.server.ContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.tyrus.core.Utils;
@@ -79,8 +79,8 @@ public class GrizzlyContainer extends Container {
     }
 
     @Override
-    public ServiceLocator getServiceLocator() {
-        return container.getApplicationHandler().getServiceLocator();
+    public InjectionManager getInjectionManager() {
+        return container.getApplicationHandler().getInjectionManager();
     }
 
     @Override
@@ -245,7 +245,7 @@ public class GrizzlyContainer extends Container {
 
     @Override
     public ServerContainer getWebSocketContainer() {
-        return getServiceLocator().getService(WebSocketServerContainer.class);
+        return getInjectionManager().getInstance(WebSocketServerContainer.class);
     }
 
     @Override

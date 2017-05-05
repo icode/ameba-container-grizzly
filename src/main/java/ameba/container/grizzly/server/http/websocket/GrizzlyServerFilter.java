@@ -19,8 +19,8 @@ import org.glassfish.grizzly.http.*;
 import org.glassfish.grizzly.http.util.Parameters;
 import org.glassfish.grizzly.memory.ByteBufferArray;
 import org.glassfish.grizzly.utils.Charsets;
-import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.jersey.internal.PropertiesDelegate;
+import org.glassfish.jersey.internal.inject.InjectionManager;
 import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.internal.monitoring.EmptyRequestEventBuilder;
@@ -86,7 +86,7 @@ public class GrizzlyServerFilter extends BaseFilter {
     public GrizzlyServerFilter(Container container, String contextPath) {
         this.container = container;
         this.contextPath = contextPath.endsWith("/") ? contextPath : contextPath + "/";
-        this.scope = new JerseyScopeDelegate(container.getServiceLocator().getService(RequestScope.class));
+        this.scope = new JerseyScopeDelegate(container.getInjectionManager().getInstance(RequestScope.class));
     }
 
     // ----------------------------------------------------- Methods from Filter
@@ -271,7 +271,7 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private void initJerseyInjection(UpgradeRequest upgradeRequest, final Connection grizzlyConnection) {
         RequestEventBuilder monitoringEventBuilder = EmptyRequestEventBuilder.INSTANCE;
-        ServiceLocator locator = container.getServiceLocator();
+        InjectionManager manager = container.getInjectionManager();
         final Map<String, Object> attrs = Maps.newLinkedHashMap();
         final URI uri = upgradeRequest.getRequestURI();
         final ContainerRequest _request;
@@ -356,13 +356,13 @@ public class GrizzlyServerFilter extends BaseFilter {
         final UriRoutingContext routingContext = (UriRoutingContext) _request.getUriInfo();
 
         final RequestProcessingContext reqContext = new RequestProcessingContext(
-                locator,
+                manager,
                 _request,
                 routingContext,
                 monitoringEventBuilder,
                 null);
 
-        locator.createAndInitialize(ReferencesInitializer.class).apply(reqContext);
+        manager.createAndInitialize(ReferencesInitializer.class).apply(reqContext);
     }
 
     /**

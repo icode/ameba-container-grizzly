@@ -10,7 +10,7 @@ import org.glassfish.grizzly.http.server.Request;
 import org.glassfish.grizzly.http.server.Response;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.api.TypeLiteral;
-import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.glassfish.jersey.internal.inject.AbstractBinder;
 import org.glassfish.jersey.internal.inject.ReferencingFactory;
 import org.glassfish.jersey.internal.util.ExtendedLogger;
 import org.glassfish.jersey.internal.util.collection.Ref;
@@ -23,6 +23,7 @@ import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.ws.rs.core.Application;
+import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriBuilder;
 import java.io.CharConversionException;
@@ -178,9 +179,9 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
             }
             requestContext.setWriter(responseWriter);
 
-            requestContext.setRequestScopedInitializer(locator -> {
-                locator.<Ref<Request>>getService(RequestTYPE).set(request);
-                locator.<Ref<Response>>getService(ResponseTYPE).set(response);
+            requestContext.setRequestScopedInitializer(injectionManager -> {
+                injectionManager.<Ref<Request>>getInstance(RequestTYPE).set(request);
+                injectionManager.<Ref<Response>>getInstance(ResponseTYPE).set(response);
             });
             appHandler.handle(requestContext);
         } finally {
@@ -364,13 +365,13 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
         protected void configure() {
             bindFactory(GrizzlyRequestReferencingFactory.class).to(Request.class)
                     .proxy(false).in(RequestScoped.class);
-            bindFactory(ReferencingFactory.<Request>referenceFactory()).to(new TypeLiteral<Ref<Request>>() {
+            bindFactory(ReferencingFactory.<Request>referenceFactory()).to(new GenericType<Ref<Request>>() {
             })
                     .in(RequestScoped.class);
 
             bindFactory(GrizzlyResponseReferencingFactory.class).to(Response.class)
                     .proxy(true).proxyForSameScope(false).in(RequestScoped.class);
-            bindFactory(ReferencingFactory.<Response>referenceFactory()).to(new TypeLiteral<Ref<Response>>() {
+            bindFactory(ReferencingFactory.<Response>referenceFactory()).to(new GenericType<Ref<Response>>() {
             })
                     .in(RequestScoped.class);
         }
