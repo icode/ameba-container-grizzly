@@ -24,8 +24,7 @@ import org.glassfish.grizzly.http.util.Constants;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransport;
 import org.glassfish.grizzly.nio.transport.TCPNIOTransportBuilder;
 import org.glassfish.grizzly.threadpool.ThreadPoolConfig;
-import org.glassfish.hk2.api.Factory;
-import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.glassfish.jersey.internal.inject.AbstractBinder;
 import org.glassfish.jersey.internal.inject.InjectionManager;
 import org.glassfish.jersey.server.ContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -38,6 +37,7 @@ import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * @author icode
@@ -91,15 +91,10 @@ public class GrizzlyContainer extends Container {
             configuration.register(new AbstractBinder() {
                 @Override
                 protected void configure() {
-                    bindFactory(new Factory<ServerContainer>() {
+                    bindFactory(new Supplier<ServerContainer>() {
                         @Override
-                        public ServerContainer provide() {
+                        public ServerContainer get() {
                             return webSocketServerContainer;
-                        }
-
-                        @Override
-                        public void dispose(ServerContainer instance) {
-                            ((WebSocketServerContainer) instance).stop();
                         }
                     })
                             .to(ServerContainer.class)
