@@ -2,7 +2,6 @@ package ameba.container.grizzly.server.http.websocket;
 
 import ameba.container.Container;
 import ameba.container.server.Request;
-import ameba.lib.JerseyScopeDelegate;
 import ameba.websocket.WebSocketException;
 import com.google.common.collect.Maps;
 import org.glassfish.grizzly.Buffer;
@@ -21,7 +20,6 @@ import org.glassfish.grizzly.memory.ByteBufferArray;
 import org.glassfish.grizzly.utils.Charsets;
 import org.glassfish.jersey.internal.PropertiesDelegate;
 import org.glassfish.jersey.internal.inject.InjectionManager;
-import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.internal.monitoring.EmptyRequestEventBuilder;
 import org.glassfish.jersey.server.internal.monitoring.RequestEventBuilder;
@@ -72,7 +70,6 @@ public class GrizzlyServerFilter extends BaseFilter {
     public final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
     private final Container container;
     private final String contextPath;
-    private JerseyScopeDelegate scope;
 
     // ------------------------------------------------------------ Constructors
 
@@ -86,7 +83,6 @@ public class GrizzlyServerFilter extends BaseFilter {
     public GrizzlyServerFilter(Container container, String contextPath) {
         this.container = container;
         this.contextPath = contextPath.endsWith("/") ? contextPath : contextPath + "/";
-        this.scope = new JerseyScopeDelegate(container.getInjectionManager().getInstance(RequestScope.class));
     }
 
     // ----------------------------------------------------- Methods from Filter
@@ -375,7 +371,6 @@ public class GrizzlyServerFilter extends BaseFilter {
     private NextAction handleHandshake(final FilterChainContext ctx, final HttpContent content) {
 
         final org.glassfish.grizzly.Connection grizzlyConnection = ctx.getConnection();
-        final RequestScope.Instance oldInstance = scope.enterScope();
 
         final UpgradeRequest upgradeRequest = createWebSocketRequest(content);
         final UpgradeResponse upgradeResponse = new TyrusUpgradeResponse();
@@ -407,7 +402,6 @@ public class GrizzlyServerFilter extends BaseFilter {
                     if (logger.isTraceEnabled()) {
                         logger.trace("websocket closed: {}", connection);
                     }
-                    scope.leaveScope(oldInstance);
                 });
 
                 if (logger.isTraceEnabled()) {
@@ -424,7 +418,6 @@ public class GrizzlyServerFilter extends BaseFilter {
                     logger.trace("handleHandshake websocket failed: content-size={} headers=\n{}",
                             content.getContent().remaining(), content.getHttpHeader());
                 }
-                scope.leaveScope(oldInstance);
                 return ctx.getStopAction();
 
             case NOT_APPLICABLE:
@@ -435,7 +428,6 @@ public class GrizzlyServerFilter extends BaseFilter {
                     logger.trace("not found websocket handler: content-size={} headers=\n{}",
                             content.getContent().remaining(), content.getHttpHeader());
                 }
-                scope.leaveScope(oldInstance);
                 return ctx.getStopAction();
         }
 
