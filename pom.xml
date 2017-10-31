@@ -203,40 +203,54 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
-            <!--<plugin>
-                <groupId>com.vlkan</groupId>
-                <artifactId>quasar-maven-plugin</artifactId>
-                <version>0.7.3</version>
-                <configuration>
-                    <check>true</check>
-                    <debug>false</debug>
-                    <verbose>false</verbose>
-                </configuration>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.amebastack.container</groupId>
-                        <artifactId>ameba-container-grizzly</artifactId>
-                        <version>${project.version}</version>
-                        <exclusions>
-                            <exclusion>
-                                <groupId>co.paralleluniverse</groupId>
-                                <artifactId>quasar-core</artifactId>
-                            </exclusion>
-                            <exclusion>
-                                <groupId>co.paralleluniverse</groupId>
-                                <artifactId>quasar-actors</artifactId>
-                            </exclusion>
-                        </exclusions>
-                    </dependency>
-                </dependencies>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
+
                     <execution>
+                        <id>instrument-classes</id>
+                        <phase>compile</phase>
+                        <configuration>
+                            <tasks>
+                                <property name="ant_classpath" refid="maven.dependency.classpath"/>
+                                <taskdef name="instrumentationTask"
+                                         classname="co.paralleluniverse.fibers.instrument.InstrumentationTask"
+                                         classpath="${ant_classpath}"/>
+                                <!-- Use "allowMonitors" to allow instrumenting methods containing synchronization -->
+                                <!-- instrumentationTask allowMonitors="true" -->
+                                <instrumentationTask>
+                                    <fileset dir="${project.build.directory}/classes/" includes="**/*.class"/>
+                                </instrumentationTask>
+                            </tasks>
+                        </configuration>
                         <goals>
-                            <goal>instrument</goal>
+                            <goal>run</goal>
                         </goals>
                     </execution>
+
+                    <!--<execution>
+                        <id>instrument-test-classes</id>
+                        <phase>test-compile</phase>
+                        <configuration>
+                            <tasks>
+                                <property name="ant_classpath" refid="maven.dependency.classpath"/>
+                                <taskdef name="instrumentationTask"
+                                         classname="co.paralleluniverse.fibers.instrument.InstrumentationTask"
+                                         classpath="${ant_classpath}"/>
+                                &lt;!&ndash; Use "allowMonitors" to allow instrumenting methods containing synchronization &ndash;&gt;
+                                &lt;!&ndash; instrumentationTask allowMonitors="true" &ndash;&gt;
+                                <instrumentationTask>
+                                    <fileset dir="${project.build.directory}/test-classes/" includes="**/*.class"/>
+                                </instrumentationTask>
+                            </tasks>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>-->
                 </executions>
-            </plugin>-->
+            </plugin>
         </plugins>
     </build>
 </project>
