@@ -73,10 +73,10 @@ public class GrizzlyServerUtil {
                         compressionCfg.setCompressionMinSize(compression.getCompressionMinSize());
                     }
 
-                    Set<String> mimeTypes = compressionCfg.getCompressableMimeTypes();
-                    Set<String> newTypes = Sets.newConcurrentHashSet(compression.getCompressableMimeTypes());
+                    Set<String> mimeTypes = compressionCfg.getCompressibleMimeTypes();
+                    Set<String> newTypes = Sets.newConcurrentHashSet(compression.getCompressibleMimeTypes());
                     newTypes.addAll(mimeTypes);
-                    compressionCfg.setCompressableMimeTypes(newTypes);
+                    compressionCfg.setCompressibleMimeTypes(newTypes);
 
                     Set<String> agents = compressionCfg.getNoCompressionUserAgents();
                     Set<String> newAgents = Sets.newConcurrentHashSet(compression.getNoCompressionUserAgents());
@@ -123,7 +123,7 @@ public class GrizzlyServerUtil {
             }
         }
         if (StringUtils.isNotBlank(mimeTypesStr))
-            compressionConfig.setCompressableMimeTypes(mimeTypesStr.split(",")); // the mime types to compress
+            compressionConfig.setCompressibleMimeTypes(mimeTypesStr.split(",")); // the mime types to compress
 
         if (StringUtils.isNotBlank(userAgentsStr))
             compressionConfig.setNoCompressionUserAgents(userAgentsStr.split(","));

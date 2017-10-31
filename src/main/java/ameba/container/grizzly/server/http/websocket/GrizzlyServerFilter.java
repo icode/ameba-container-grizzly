@@ -440,9 +440,6 @@ public class GrizzlyServerFilter extends BaseFilter {
         responsePacket.setProtocol(Protocol.HTTP_1_1);
         responsePacket.setStatus(response.getStatus());
 
-        // TODO
-//        responsePacket.setReasonPhrase(response.getReasonPhrase());
-
         for (Map.Entry<String, List<String>> entry : response.getHeaders().entrySet()) {
             responsePacket.setHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
         }

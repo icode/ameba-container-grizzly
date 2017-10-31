@@ -3,7 +3,6 @@ package ameba.container.grizzly.server.http;
 import ameba.container.grizzly.server.http.internal.LocalizationMessages;
 import ameba.container.internal.ConfigHelper;
 import ameba.exception.AmebaException;
-import ameba.lib.Fibers;
 import co.paralleluniverse.fibers.Suspendable;
 import org.glassfish.grizzly.CompletionHandler;
 import org.glassfish.grizzly.http.server.HttpHandler;
@@ -181,7 +180,7 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
             requestContext.setWriter(responseWriter);
 
             response.suspend();
-            Fibers.start(() -> {
+            HttpFiber.start(() -> {
                 requestContext.setRequestScopedInitializer(injectionManager -> {
                     injectionManager.<Ref<Request>>getInstance(RequestTYPE).set(request);
                     injectionManager.<Ref<Response>>getInstance(ResponseTYPE).set(response);

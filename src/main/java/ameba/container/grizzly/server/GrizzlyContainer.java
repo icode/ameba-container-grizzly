@@ -4,6 +4,7 @@ import ameba.Ameba;
 import ameba.container.Container;
 import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
+import ameba.container.grizzly.server.http.HttpFiber;
 import ameba.container.grizzly.server.http.websocket.TyrusWebSocketEndpointProvider;
 import ameba.container.grizzly.server.http.websocket.WebSocketServerContainer;
 import ameba.container.server.Connector;
@@ -91,12 +92,7 @@ public class GrizzlyContainer extends Container {
             configuration.register(new AbstractBinder() {
                 @Override
                 protected void configure() {
-                    bindFactory(new Supplier<ServerContainer>() {
-                        @Override
-                        public ServerContainer get() {
-                            return webSocketServerContainer;
-                        }
-                    })
+                    bindFactory((Supplier<ServerContainer>) () -> webSocketServerContainer)
                             .to(ServerContainer.class)
                             .to(WebSocketServerContainer.class);
                     bind(TyrusWebSocketEndpointProvider.class)
@@ -109,6 +105,7 @@ public class GrizzlyContainer extends Container {
     @Override
     protected void configureHttpServer() {
         final Map<String, Object> properties = getApplication().getProperties();
+        HttpFiber.load(getApplication().getConfig());
         connectors = Connector.createDefaultConnectors(properties);
         if (connectors.size() == 0) {
             logger.warn(Messages.get("info.connector.none"));
@@ -250,8 +247,10 @@ public class GrizzlyContainer extends Container {
 
         container.reload(() -> {
             application.reconfigure();
-            registerBinder(application.getConfig());
-            return application.getConfig();
+            ResourceConfig config = application.getConfig();
+            registerBinder(config);
+            HttpFiber.load(config);
+            return config;
         });
         if (webSocketServerContainer != null && old != null) {
             try {
