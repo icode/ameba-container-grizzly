@@ -134,21 +134,30 @@ public class GrizzlyServerUtil {
         SSLEngineConfigurator sslEngineConfigurator = null;
         if (connector.isSslConfigReady()) {
             SSLContextConfigurator sslContextConfiguration = new SSLContextConfigurator();
-            sslContextConfiguration.setKeyPass(connector.getSslKeyPassword());
-            sslContextConfiguration.setSecurityProtocol(connector.getSslProtocol());
+            if (StringUtils.isNotBlank(connector.getSslKeyPassword()))
+                sslContextConfiguration.setKeyPass(connector.getSslKeyPassword());
+            if (StringUtils.isNotBlank(connector.getSslProtocol()))
+                sslContextConfiguration.setSecurityProtocol(connector.getSslProtocol());
 
             sslContextConfiguration.setKeyStoreBytes(connector.getSslKeyStoreFile());
-            sslContextConfiguration.setKeyStorePass(connector.getSslKeyStorePassword());
-            sslContextConfiguration.setKeyStoreProvider(connector.getSslKeyStoreProvider());
-            sslContextConfiguration.setKeyStoreType(connector.getSslKeyStoreType());
-            sslContextConfiguration.setKeyManagerFactoryAlgorithm(connector.getSslKeyManagerFactoryAlgorithm());
+            if (StringUtils.isNotBlank(connector.getSslKeyStorePassword()))
+                sslContextConfiguration.setKeyStorePass(connector.getSslKeyStorePassword());
+            if (StringUtils.isNotBlank(connector.getSslKeyStoreProvider()))
+                sslContextConfiguration.setKeyStoreProvider(connector.getSslKeyStoreProvider());
+            if (StringUtils.isNotBlank(connector.getSslKeyStoreType()))
+                sslContextConfiguration.setKeyStoreType(connector.getSslKeyStoreType());
+            if (StringUtils.isNotBlank(connector.getSslKeyManagerFactoryAlgorithm()))
+                sslContextConfiguration.setKeyManagerFactoryAlgorithm(connector.getSslKeyManagerFactoryAlgorithm());
 
             sslContextConfiguration.setTrustStoreBytes(connector.getSslTrustStoreFile());
             if (StringUtils.isNotBlank(connector.getSslTrustStorePassword()))
                 sslContextConfiguration.setTrustStorePass(connector.getSslTrustStorePassword());
-            sslContextConfiguration.setTrustStoreType(connector.getSslTrustStoreType());
-            sslContextConfiguration.setTrustStoreProvider(connector.getSslTrustStoreProvider());
-            sslContextConfiguration.setTrustManagerFactoryAlgorithm(connector.getSslTrustManagerFactoryAlgorithm());
+            if (StringUtils.isNotBlank(connector.getSslTrustStoreType()))
+                sslContextConfiguration.setTrustStoreType(connector.getSslTrustStoreType());
+            if (StringUtils.isNotBlank(connector.getSslTrustStoreProvider()))
+                sslContextConfiguration.setTrustStoreProvider(connector.getSslTrustStoreProvider());
+            if (StringUtils.isNotBlank(connector.getSslTrustManagerFactoryAlgorithm()))
+                sslContextConfiguration.setTrustManagerFactoryAlgorithm(connector.getSslTrustManagerFactoryAlgorithm());
 
             sslEngineConfigurator = new SSLEngineConfigurator(
                     sslContextConfiguration,
