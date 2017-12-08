@@ -58,10 +58,25 @@ public class AnnotatedEndpointMeta extends AbstractAnnotatedEndpointMeta {
             if (!wseAnnotation.configurator().equals(ServerEndpointConfig.Configurator.class)) {
                 builder = builder.configurator(Injections.getOrCreate(manager, wseAnnotation.configurator()));
             }
-            builder.maxSessions(max);
-            return builder.build();
+            return builder.maxSessions(max).build();
         }
-        return super.buildServerEndpointConfig(path, wseAnnotation, annotatedClass, subProtocols, encoderClasses, decoderClasses);
+        return super.buildServerEndpointConfig(path, wseAnnotation, annotatedClass,
+                subProtocols, encoderClasses, decoderClasses);
+    }
+
+    @Override
+    protected int getMaxSessions(Class<?> annotatedClass) {
+        int max = super.getMaxSessions(annotatedClass);
+
+        if (max == -1) {
+            final org.glassfish.tyrus.core.MaxSessions wseMaxSessionsAnnotation
+                    = annotatedClass.getAnnotation(org.glassfish.tyrus.core.MaxSessions.class);
+            if (wseMaxSessionsAnnotation != null) {
+                max = wseMaxSessionsAnnotation.value();
+            }
+        }
+
+        return max;
     }
 
     @Override
