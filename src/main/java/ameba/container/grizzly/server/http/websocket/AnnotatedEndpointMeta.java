@@ -43,7 +43,10 @@ public class AnnotatedEndpointMeta extends AbstractAnnotatedEndpointMeta {
     }
 
     @Override
-    protected ServerEndpointConfig buildServerEndpointConfig(String path, WebSocket wseAnnotation, Class<?> annotatedClass, String[] subProtocols, List<Class<? extends Encoder>> encoderClasses, List<Class<? extends Decoder>> decoderClasses) {
+    protected ServerEndpointConfig buildServerEndpointConfig(String path, WebSocket wseAnnotation,
+                                                             Class<?> annotatedClass, String[] subProtocols,
+                                                             List<Class<? extends Encoder>> encoderClasses,
+                                                             List<Class<? extends Decoder>> decoderClasses) {
         int max = getMaxSessions(annotatedClass);
         if (max != -1) {
             TyrusServerEndpointConfig.Builder builder =
