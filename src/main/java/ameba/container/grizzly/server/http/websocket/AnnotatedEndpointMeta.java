@@ -24,11 +24,9 @@ public class AnnotatedEndpointMeta extends AbstractAnnotatedEndpointMeta {
     private ComponentProviderService componentProvider;
 
     public AnnotatedEndpointMeta(Class endpointClass,
-                                 WebSocket webSocket,
-                                 Integer incomingBufferSize,
                                  InjectionManager manager,
                                  ComponentProviderService componentProviderService) {
-        super(endpointClass, webSocket, incomingBufferSize, manager);
+        super(endpointClass, manager);
         componentProvider = componentProviderService;
     }
 
@@ -55,7 +53,7 @@ public class AnnotatedEndpointMeta extends AbstractAnnotatedEndpointMeta {
                             .encoders(encoderClasses)
                             .decoders(decoderClasses)
                             .subprotocols(Arrays.asList(subProtocols));
-            if (!wseAnnotation.configurator().equals(ServerEndpointConfig.Configurator.class)) {
+            if (!ServerEndpointConfig.Configurator.class.equals(wseAnnotation.configurator())) {
                 builder = builder.configurator(Injections.getOrCreate(manager, wseAnnotation.configurator()));
             }
             return builder.maxSessions(max).build();

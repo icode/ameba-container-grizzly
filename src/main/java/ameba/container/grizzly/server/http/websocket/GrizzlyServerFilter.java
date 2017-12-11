@@ -20,11 +20,13 @@ import org.glassfish.grizzly.memory.ByteBufferArray;
 import org.glassfish.grizzly.utils.Charsets;
 import org.glassfish.jersey.internal.PropertiesDelegate;
 import org.glassfish.jersey.internal.inject.InjectionManager;
+import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.internal.monitoring.EmptyRequestEventBuilder;
 import org.glassfish.jersey.server.internal.monitoring.RequestEventBuilder;
 import org.glassfish.jersey.server.internal.process.ReferencesInitializer;
 import org.glassfish.jersey.server.internal.process.RequestProcessingContext;
+import org.glassfish.jersey.server.internal.process.RequestProcessingContextReference;
 import org.glassfish.jersey.server.internal.routing.UriRoutingContext;
 import org.glassfish.tyrus.container.grizzly.client.GrizzlyWriter;
 import org.glassfish.tyrus.container.grizzly.client.TaskProcessor;
@@ -357,8 +359,9 @@ public class GrizzlyServerFilter extends BaseFilter {
                 routingContext,
                 monitoringEventBuilder,
                 null);
-
-        manager.createAndInitialize(ReferencesInitializer.class).apply(reqContext);
+        final ReferencesInitializer referencesInitializer = new ReferencesInitializer(manager,
+                () -> manager.getInstance(RequestProcessingContextReference.class));
+        referencesInitializer.apply(reqContext);
     }
 
     /**
@@ -381,6 +384,11 @@ public class GrizzlyServerFilter extends BaseFilter {
             case SUCCESS:
                 write(ctx, upgradeResponse);
 
+                InjectionManager manager = container.getInjectionManager();
+                Scopes.Proxy scope = Scopes.wrap(manager.getInstance(RequestScope.class));
+                org.glassfish.jersey.process.internal.RequestContext oldContext = scope.retrieveCurrent();
+                org.glassfish.jersey.process.internal.RequestContext context = scope.createContext();
+                scope.activate(context, oldContext);
                 initJerseyInjection(upgradeRequest, grizzlyConnection);
 
                 final org.glassfish.tyrus.spi.Connection connection =
@@ -391,16 +399,21 @@ public class GrizzlyServerFilter extends BaseFilter {
                 TASK_PROCESSOR.set(grizzlyConnection, new TaskProcessor());
 
                 grizzlyConnection.addCloseListener((CloseListener) (closeable, type) -> {
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("websocket closing: {}", connection);
-                    }
-                    // close detected on connection
-                    connection.close(CloseReasons.GOING_AWAY.getCloseReason());
-                    // might not be necessary, connection is going to be recycled/freed anyway
-                    TYRUS_CONNECTION.remove(grizzlyConnection);
-                    TASK_PROCESSOR.remove(grizzlyConnection);
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("websocket closed: {}", connection);
+                    try {
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("websocket closing: {}", connection);
+                        }
+                        // close detected on connection
+                        connection.close(CloseReasons.GOING_AWAY.getCloseReason());
+                        // might not be necessary, connection is going to be recycled/freed anyway
+                        TYRUS_CONNECTION.remove(grizzlyConnection);
+                        TASK_PROCESSOR.remove(grizzlyConnection);
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("websocket closed: {}", connection);
+                        }
+                    } finally {
+                        scope.release(context);
+                        scope.resume(oldContext);
                     }
                 });
 

@@ -27,12 +27,12 @@ public class TyrusWebSocketEndpointProvider implements WebSocketEndpointProvider
 
     @Override
     public EndpointMeta parseMeta(Class endpointClass, WebSocket webSocketConf) {
-        return new AnnotatedEndpointMeta(
+        AnnotatedEndpointMeta meta = new AnnotatedEndpointMeta(
                 endpointClass,
-                webSocketConf,
-                container.getIncomingBufferSize(),
                 manager,
                 componentProviderService
         );
+        meta.parse(webSocketConf, container.getIncomingBufferSize());
+        return meta;
     }
 }
