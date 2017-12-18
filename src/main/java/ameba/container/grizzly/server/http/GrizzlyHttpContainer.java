@@ -75,9 +75,9 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
             // no-op
         }
     };
-    private final Type RequestTYPE = (new TypeLiteral<Ref<Request>>() {
+    private static final Type RequestType = (new TypeLiteral<Ref<Request>>() {
     }).getType();
-    private final Type ResponseTYPE = (new TypeLiteral<Ref<Response>>() {
+    private static final Type ResponseType = (new TypeLiteral<Ref<Response>>() {
     }).getType();
     /**
      * Cached value of configuration property
@@ -182,8 +182,8 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
             response.suspend();
             HttpFiber.start(() -> {
                 requestContext.setRequestScopedInitializer(injectionManager -> {
-                    injectionManager.<Ref<Request>>getInstance(RequestTYPE).set(request);
-                    injectionManager.<Ref<Response>>getInstance(ResponseTYPE).set(response);
+                    injectionManager.<Ref<Request>>getInstance(RequestType).set(request);
+                    injectionManager.<Ref<Response>>getInstance(ResponseType).set(response);
                 });
                 appHandler.handle(requestContext);
             });

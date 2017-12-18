@@ -17,10 +17,10 @@ import org.glassfish.grizzly.filterchain.NextAction;
 import org.glassfish.grizzly.http.*;
 import org.glassfish.grizzly.http.util.Parameters;
 import org.glassfish.grizzly.memory.ByteBufferArray;
+import org.glassfish.grizzly.threadpool.Threads;
 import org.glassfish.grizzly.utils.Charsets;
 import org.glassfish.jersey.internal.PropertiesDelegate;
 import org.glassfish.jersey.internal.inject.InjectionManager;
-import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.internal.monitoring.EmptyRequestEventBuilder;
 import org.glassfish.jersey.server.internal.monitoring.RequestEventBuilder;
@@ -50,6 +50,7 @@ import java.security.Principal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
  * WebSocket {@link BaseFilter} implementation, which supposed to be placed into a {@link FilterChain} right after HTTP
@@ -65,10 +66,12 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(GrizzlyServerFilter.class);
 
-    private static final Attribute<org.glassfish.tyrus.spi.Connection> TYRUS_CONNECTION = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
-            .createAttribute(GrizzlyServerFilter.class.getName() + ".Connection");
+    private static final Attribute<org.glassfish.tyrus.spi.Connection> TYRUS_CONNECTION =
+            Grizzly.DEFAULT_ATTRIBUTE_BUILDER.createAttribute(GrizzlyServerFilter.class.getName() + ".Connection");
     private static final Attribute<TaskProcessor> TASK_PROCESSOR = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
             .createAttribute(TaskProcessor.class.getName() + ".TaskProcessor");
+    private static final Attribute<Scope> REQ_SCOPE = Grizzly.DEFAULT_ATTRIBUTE_BUILDER
+            .createAttribute(Scope.class.getName() + ".Scope");
     public final String ATTR_NAME = "org.glassfish.tyrus.container.grizzly.WebSocketFilter.HANDSHAKE_PROCESSED";
     private final Container container;
     private final String contextPath;
@@ -143,7 +146,8 @@ public class GrizzlyServerFilter extends BaseFilter {
         final org.glassfish.tyrus.spi.Connection connection = getConnection(ctx);
         if (connection != null) {
             TaskProcessor taskProcessor = getTaskProcessor(ctx);
-            taskProcessor.processTask(new CloseTask(connection, CloseReasons.CLOSED_ABNORMALLY.getCloseReason(), ctx.getConnection()));
+            taskProcessor.processTask(new CloseTask(connection,
+                    CloseReasons.CLOSED_ABNORMALLY.getCloseReason(), ctx.getConnection()));
             return ctx.getStopAction();
         }
         return ctx.getInvokeAction();
@@ -169,7 +173,7 @@ public class GrizzlyServerFilter extends BaseFilter {
 
         HttpRequestPacket requestPacket = (HttpRequestPacket) message.getHttpHeader();
 
-        if (!requestPacket.getRequestURI().startsWith(contextPath)) {
+        if (requestPacket != null && !requestPacket.getRequestURI().startsWith(contextPath)) {
             // the request is not for the deployed application
             return ctx.getInvokeAction();
         }
@@ -212,24 +216,26 @@ public class GrizzlyServerFilter extends BaseFilter {
         // tyrusConnection is not null
         // this is websocket with the completed handshake
         if (message.getContent().hasRemaining()) {
-            // get the frame(s) content
+            if (execute(ctx, () -> {
+                // get the frame(s) content
+                Buffer buffer = message.getContent();
+                message.recycle();
+                final ReadHandler readHandler = tyrusConnection.getReadHandler();
+                TaskProcessor taskProcessor = getTaskProcessor(ctx);
+                if (!buffer.isComposite()) {
+                    taskProcessor.processTask(new ProcessTask(buffer.toByteBuffer(), readHandler));
+                } else {
+                    final ByteBufferArray byteBufferArray = buffer.toByteBufferArray();
+                    final ByteBuffer[] array = byteBufferArray.getArray();
 
-            Buffer buffer = message.getContent();
-            message.recycle();
-            final ReadHandler readHandler = tyrusConnection.getReadHandler();
-            TaskProcessor taskProcessor = getTaskProcessor(ctx);
-            if (!buffer.isComposite()) {
-                taskProcessor.processTask(new ProcessTask(buffer.toByteBuffer(), readHandler));
-            } else {
-                final ByteBufferArray byteBufferArray = buffer.toByteBufferArray();
-                final ByteBuffer[] array = byteBufferArray.getArray();
+                    for (int i = 0; i < byteBufferArray.size(); i++) {
+                        taskProcessor.processTask(new ProcessTask(array[i], readHandler));
+                    }
 
-                for (int i = 0; i < byteBufferArray.size(); i++) {
-                    taskProcessor.processTask(new ProcessTask(array[i], readHandler));
+                    byteBufferArray.recycle();
                 }
-
-                byteBufferArray.recycle();
-            }
+            }))
+                return ctx.getSuspendAction();
         }
         return ctx.getStopAction();
     }
@@ -240,6 +246,10 @@ public class GrizzlyServerFilter extends BaseFilter {
 
     private TaskProcessor getTaskProcessor(FilterChainContext ctx) {
         return TASK_PROCESSOR.get(ctx.getConnection());
+    }
+
+    private Scope getScope(FilterChainContext ctx) {
+        return REQ_SCOPE.get(ctx.getConnection());
     }
 
     private SecurityContext getSecurityContext(final UpgradeRequest request) {
@@ -384,21 +394,23 @@ public class GrizzlyServerFilter extends BaseFilter {
             case SUCCESS:
                 write(ctx, upgradeResponse);
 
-                InjectionManager manager = container.getInjectionManager();
-                Scopes.Proxy scope = Scopes.wrap(manager.getInstance(RequestScope.class));
-                org.glassfish.jersey.process.internal.RequestContext oldContext = scope.retrieveCurrent();
-                org.glassfish.jersey.process.internal.RequestContext context = scope.createContext();
-                scope.activate(context, oldContext);
+                Scope scope = Scope.create(container.getInjectionManager());
+                org.glassfish.jersey.process.internal.RequestContext old = scope.activate();
                 initJerseyInjection(upgradeRequest, grizzlyConnection);
-
-                final org.glassfish.tyrus.spi.Connection connection =
-                        upgradeInfo.createConnection(new GrizzlyWriter(ctx.getConnection()),
-                                reason -> grizzlyConnection.close());
-
+                org.glassfish.tyrus.spi.Connection connection;
+                try {
+                    connection = upgradeInfo.createConnection(
+                            new GrizzlyWriter(ctx.getConnection()),
+                            reason -> grizzlyConnection.close()
+                    );
+                } finally {
+                    scope.resume(old);
+                }
+                REQ_SCOPE.set(grizzlyConnection, scope);
                 TYRUS_CONNECTION.set(grizzlyConnection, connection);
                 TASK_PROCESSOR.set(grizzlyConnection, new TaskProcessor());
 
-                grizzlyConnection.addCloseListener((CloseListener) (closeable, type) -> {
+                grizzlyConnection.addCloseListener((CloseListener) (closeable, type) -> execute(ctx, () -> {
                     try {
                         if (logger.isTraceEnabled()) {
                             logger.trace("websocket closing: {}", connection);
@@ -406,16 +418,16 @@ public class GrizzlyServerFilter extends BaseFilter {
                         // close detected on connection
                         connection.close(CloseReasons.GOING_AWAY.getCloseReason());
                         // might not be necessary, connection is going to be recycled/freed anyway
+                        REQ_SCOPE.remove(grizzlyConnection);
                         TYRUS_CONNECTION.remove(grizzlyConnection);
                         TASK_PROCESSOR.remove(grizzlyConnection);
                         if (logger.isTraceEnabled()) {
                             logger.trace("websocket closed: {}", connection);
                         }
                     } finally {
-                        scope.release(context);
-                        scope.resume(oldContext);
+                        scope.release();
                     }
-                });
+                }));
 
                 if (logger.isTraceEnabled()) {
                     logger.trace("handleHandshake websocket success: {} content-size={} headers=\n{}",
@@ -460,6 +472,41 @@ public class GrizzlyServerFilter extends BaseFilter {
         ctx.write(HttpContent.builder(responsePacket).build());
     }
 
+    protected Executor getExecutor(FilterChainContext ctx) {
+        if (!Threads.isService()) {
+            return null; // Execute in the current thread
+        }
+
+        return ctx.getConnection().getTransport().getWorkerThreadPool();
+    }
+
+    protected boolean execute(FilterChainContext ctx, Runnable runnable) {
+        final Executor threadPool = getExecutor(ctx);
+
+        final Scope scope = getScope(ctx);
+        if (threadPool != null) {
+            ctx.suspend();
+            threadPool.execute(() -> {
+                org.glassfish.jersey.process.internal.RequestContext old = scope.activate();
+                try {
+                    runnable.run();
+                } finally {
+                    scope.resume(old);
+                    ctx.resume(ctx.getStopAction());
+                }
+            });
+            return true;
+        } else {
+            org.glassfish.jersey.process.internal.RequestContext old = scope.activate();
+            try {
+                runnable.run();
+            } finally {
+                scope.resume(old);
+            }
+        }
+        return false;
+    }
+
     private class ProcessTask extends TaskProcessor.Task {
         private final ByteBuffer buffer;
         private final ReadHandler readHandler;
@@ -480,7 +527,9 @@ public class GrizzlyServerFilter extends BaseFilter {
         private final CloseReason closeReason;
         private final Connection grizzlyConnection;
 
-        private CloseTask(org.glassfish.tyrus.spi.Connection connection, CloseReason closeReason, Connection grizzlyConnection) {
+        private CloseTask(org.glassfish.tyrus.spi.Connection connection,
+                          CloseReason closeReason,
+                          Connection grizzlyConnection) {
             this.connection = connection;
             this.closeReason = closeReason;
             this.grizzlyConnection = grizzlyConnection;
@@ -489,6 +538,7 @@ public class GrizzlyServerFilter extends BaseFilter {
         @Override
         public void execute() {
             connection.close(closeReason);
+            REQ_SCOPE.remove(grizzlyConnection);
             TYRUS_CONNECTION.remove(grizzlyConnection);
             TASK_PROCESSOR.remove(grizzlyConnection);
         }
