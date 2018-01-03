@@ -538,6 +538,9 @@ public class GrizzlyServerFilter extends BaseFilter {
         @Override
         public void execute() {
             connection.close(closeReason);
+            Scope scope = REQ_SCOPE.get(grizzlyConnection);
+            if (scope != null)
+                scope.release();
             REQ_SCOPE.remove(grizzlyConnection);
             TYRUS_CONNECTION.remove(grizzlyConnection);
             TASK_PROCESSOR.remove(grizzlyConnection);
