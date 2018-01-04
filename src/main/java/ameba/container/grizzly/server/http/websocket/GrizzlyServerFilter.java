@@ -146,9 +146,23 @@ public class GrizzlyServerFilter extends BaseFilter {
         final org.glassfish.tyrus.spi.Connection connection = getConnection(ctx);
         if (connection != null) {
             TaskProcessor taskProcessor = getTaskProcessor(ctx);
-            if (execute(ctx, () -> taskProcessor.processTask(new CloseTask(connection,
-                    CloseReasons.CLOSED_ABNORMALLY.getCloseReason(), ctx.getConnection()))))
-                return ctx.getSuspendAction();
+            Scope scope = getScope(ctx);
+            Connection grizzlyConnection = ctx.getConnection();
+            ctx.suspend();
+            org.glassfish.jersey.process.internal.RequestContext old = scope.activate();
+            try {
+                taskProcessor.processTask(
+                        new CloseTask(
+                                grizzlyConnection,
+                                connection,
+                                CloseReasons.CLOSED_ABNORMALLY.getCloseReason()
+                        )
+                );
+            } finally {
+                scope.resume(old);
+                scope.release();
+            }
+            return ctx.getStopAction();
         }
         return ctx.getInvokeAction();
     }
@@ -527,9 +541,9 @@ public class GrizzlyServerFilter extends BaseFilter {
         private final CloseReason closeReason;
         private final Connection grizzlyConnection;
 
-        private CloseTask(org.glassfish.tyrus.spi.Connection connection,
-                          CloseReason closeReason,
-                          Connection grizzlyConnection) {
+        private CloseTask(Connection grizzlyConnection,
+                          org.glassfish.tyrus.spi.Connection connection,
+                          CloseReason closeReason) {
             this.connection = connection;
             this.closeReason = closeReason;
             this.grizzlyConnection = grizzlyConnection;
@@ -538,9 +552,6 @@ public class GrizzlyServerFilter extends BaseFilter {
         @Override
         public void execute() {
             connection.close(closeReason);
-            Scope scope = REQ_SCOPE.get(grizzlyConnection);
-            if (scope != null)
-                scope.release();
             REQ_SCOPE.remove(grizzlyConnection);
             TYRUS_CONNECTION.remove(grizzlyConnection);
             TASK_PROCESSOR.remove(grizzlyConnection);
