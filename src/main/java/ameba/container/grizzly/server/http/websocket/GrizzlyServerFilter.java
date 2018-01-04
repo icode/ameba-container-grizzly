@@ -38,7 +38,6 @@ import org.glassfish.tyrus.spi.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.websocket.CloseReason;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriBuilder;
 import java.io.IOException;
@@ -142,24 +141,7 @@ public class GrizzlyServerFilter extends BaseFilter {
      */
     @Override
     public NextAction handleClose(FilterChainContext ctx) throws IOException {
-
-        final org.glassfish.tyrus.spi.Connection connection = getConnection(ctx);
-        if (connection != null) {
-            TaskProcessor taskProcessor = getTaskProcessor(ctx);
-            Scope scope = getScope(ctx);
-            ctx.suspend();
-            org.glassfish.jersey.process.internal.RequestContext old = scope.activate();
-            try {
-                taskProcessor.processTask(
-                        new CloseTask(
-                                connection,
-                                CloseReasons.CLOSED_ABNORMALLY.getCloseReason()
-                        )
-                );
-            } finally {
-                scope.resume(old);
-                scope.release();
-            }
+        if (getConnection(ctx) != null) {
             return ctx.getStopAction();
         }
         return ctx.getInvokeAction();
@@ -422,7 +404,7 @@ public class GrizzlyServerFilter extends BaseFilter {
                 TYRUS_CONNECTION.set(grizzlyConnection, connection);
                 TASK_PROCESSOR.set(grizzlyConnection, new TaskProcessor());
 
-                grizzlyConnection.addCloseListener((CloseListener) (closeable, type) -> execute(ctx, scope, () -> {
+                grizzlyConnection.addCloseListener((CloseListener) (closeable, type) -> execute(ctx, () -> {
                     try {
                         if (logger.isTraceEnabled()) {
                             logger.trace("websocket closing: {}", connection);
@@ -534,22 +516,6 @@ public class GrizzlyServerFilter extends BaseFilter {
         @Override
         public void execute() {
             readHandler.handle(buffer);
-        }
-    }
-
-    private class CloseTask extends TaskProcessor.Task {
-        private final org.glassfish.tyrus.spi.Connection connection;
-        private final CloseReason closeReason;
-
-        private CloseTask(org.glassfish.tyrus.spi.Connection connection,
-                          CloseReason closeReason) {
-            this.connection = connection;
-            this.closeReason = closeReason;
-        }
-
-        @Override
-        public void execute() {
-            connection.close(closeReason);
         }
     }
 }
