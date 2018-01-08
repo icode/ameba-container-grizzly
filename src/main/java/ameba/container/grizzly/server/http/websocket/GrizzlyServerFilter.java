@@ -489,7 +489,9 @@ public class GrizzlyServerFilter extends BaseFilter {
                     runnable.run();
                 } finally {
                     scope.resume(old);
-                    ctx.resume(ctx.getStopAction());
+                    if (ctx.state().equals(FilterChainContext.State.SUSPEND)) {
+                        ctx.resume(ctx.getStopAction());
+                    }
                 }
             });
             return true;
