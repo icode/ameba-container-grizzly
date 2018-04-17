@@ -179,7 +179,7 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
             }
             requestContext.setWriter(responseWriter);
 
-            response.suspend();
+//            response.suspend();
 //            HttpFiber.start(() -> {
             requestContext.setRequestScopedInitializer(injectionManager -> {
                 injectionManager.<Ref<Request>>getInstance(RequestType).set(request);
