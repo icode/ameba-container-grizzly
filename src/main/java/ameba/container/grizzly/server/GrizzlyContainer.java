@@ -4,7 +4,6 @@ import ameba.Ameba;
 import ameba.container.Container;
 import ameba.container.grizzly.server.http.GrizzlyHttpContainer;
 import ameba.container.grizzly.server.http.GrizzlyServerUtil;
-import ameba.container.grizzly.server.http.HttpFiber;
 import ameba.container.grizzly.server.http.websocket.TyrusWebSocketEndpointProvider;
 import ameba.container.grizzly.server.http.websocket.WebSocketServerContainer;
 import ameba.container.server.Connector;
@@ -39,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+
+//import ameba.container.grizzly.server.http.HttpFiber;
 
 /**
  * @author icode
@@ -105,7 +106,7 @@ public class GrizzlyContainer extends Container {
     @Override
     protected void configureHttpServer() {
         final Map<String, Object> properties = getApplication().getProperties();
-        HttpFiber.load(getApplication().getConfig());
+//        HttpFiber.load(getApplication().getConfig());
         connectors = Connector.createDefaultConnectors(properties);
         if (connectors.size() == 0) {
             logger.warn(Messages.get("info.connector.none"));
@@ -249,7 +250,7 @@ public class GrizzlyContainer extends Container {
             application.reconfigure();
             ResourceConfig config = application.getConfig();
             registerBinder(config);
-            HttpFiber.load(config);
+//            HttpFiber.load(config);
             return config;
         });
         if (webSocketServerContainer != null && old != null) {
@@ -272,7 +273,7 @@ public class GrizzlyContainer extends Container {
     }
 
     @Override
-    public void doShutdown() throws Exception {
+    public void doShutdown() {
         httpServer.shutdownNow();
     }
 

@@ -1,5 +1,6 @@
 package ameba.container.grizzly.server.http.websocket;
 
+import ameba.exception.AmebaException;
 import ameba.websocket.WebSocket;
 import ameba.websocket.internal.AbstractAnnotatedEndpointMeta;
 import com.google.common.collect.Lists;
@@ -36,8 +37,12 @@ public class AnnotatedEndpointMeta extends AbstractAnnotatedEndpointMeta {
     }
 
     @Override
-    protected <T> Object getEndpointInstance(Class<T> endpointClass) throws InstantiationException {
-        return componentProvider.getEndpointInstance(endpointClass);
+    protected <T> Object getEndpointInstance(Class<T> endpointClass) {
+        try {
+            return componentProvider.getEndpointInstance(endpointClass);
+        } catch (InstantiationException e) {
+            throw new AmebaException(e);
+        }
     }
 
     @Override

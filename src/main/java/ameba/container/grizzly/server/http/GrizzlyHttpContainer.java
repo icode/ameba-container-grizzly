@@ -3,7 +3,6 @@ package ameba.container.grizzly.server.http;
 import ameba.container.grizzly.server.http.internal.LocalizationMessages;
 import ameba.container.internal.ConfigHelper;
 import ameba.exception.AmebaException;
-import co.paralleluniverse.fibers.Suspendable;
 import org.glassfish.grizzly.CompletionHandler;
 import org.glassfish.grizzly.http.server.HttpHandler;
 import org.glassfish.grizzly.http.server.Request;
@@ -26,7 +25,6 @@ import javax.ws.rs.core.Application;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriBuilder;
-import java.io.CharConversionException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
@@ -40,6 +38,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+//import co.paralleluniverse.fibers.Suspendable;
 
 /**
  * Jersey {@code Container} implementation based on Grizzly {@link org.glassfish.grizzly.http.server.HttpHandler}.
@@ -127,8 +127,8 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
     }
 
     @Override
-    @Suspendable
-    public void service(final Request request, final Response response) throws CharConversionException {
+//    @Suspendable
+    public void service(final Request request, final Response response) {
         final ResponseWriter responseWriter = new ResponseWriter(response, configSetStatusOverSendError);
         try {
             logger.debugLog("GrizzlyHttpContainer.service(...) started");
@@ -180,13 +180,13 @@ public class GrizzlyHttpContainer extends HttpHandler implements Container {
             requestContext.setWriter(responseWriter);
 
             response.suspend();
-            HttpFiber.start(() -> {
-                requestContext.setRequestScopedInitializer(injectionManager -> {
-                    injectionManager.<Ref<Request>>getInstance(RequestType).set(request);
-                    injectionManager.<Ref<Response>>getInstance(ResponseType).set(response);
-                });
-                appHandler.handle(requestContext);
+//            HttpFiber.start(() -> {
+            requestContext.setRequestScopedInitializer(injectionManager -> {
+                injectionManager.<Ref<Request>>getInstance(RequestType).set(request);
+                injectionManager.<Ref<Response>>getInstance(ResponseType).set(response);
             });
+            appHandler.handle(requestContext);
+//            });
         } finally {
             logger.debugLog("GrizzlyHttpContainer.service(...) finished");
         }
